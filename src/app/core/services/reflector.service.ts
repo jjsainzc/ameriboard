@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, DestroyRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
-import { BehaviorSubject, Observable, interval, switchMap, startWith, catchError, of, tap, map, shareReplay } from 'rxjs';
+import { BehaviorSubject, Subject, Observable, interval, merge, switchMap, startWith, catchError, of, tap, map, shareReplay } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity, EchoLinkStation } from '../models/reflector.model';
 
@@ -20,8 +20,8 @@ interface BackendStatusRaw {
     dmrTx24h: number;
     stations24h: number;
   };
-  ysfLastTx?: Array<{ callsign: string; duration: string; ago: string }> | null;
-  dmrLastTx?: Array<{ callsign: string; duration: string; ago: string }> | null;
+  ysfLastTx?: Array<{ callsign: string; duration: string; ago: string; target?: string; gateway?: string }> | null;
+  dmrLastTx?: Array<{ callsign: string; duration: string; ago: string; dmrId?: string; talkgroup?: string }> | null;
   ysfConnectedList?: Array<{ callsign: string; ip: string; type: string; since: string }> | null;
   combined24h?: Array<{
     time: string;
@@ -33,6 +33,7 @@ interface BackendStatusRaw {
   echolinkConnectedList?: EchoLinkStation[] | null;
   echolinkUptime?: string | null;
   ysfAvailable?: boolean;
+  ysfTrafficAvailable?: boolean;
   dmrAvailable?: boolean;
   echolinkAvailable?: boolean;
   warnings?: string[] | null;
@@ -60,6 +61,7 @@ export class ReflectorService {
 
   private readonly statusUrl = this.resolveStatusUrl();
   private readonly selectedProfile = new BehaviorSubject<string>('');
+  private readonly refreshRequests = new Subject<void>();
 
   readonly data = signal<ReflectorDashboardData | null>(null);
   readonly error = signal<string | null>(null);
@@ -105,13 +107,17 @@ export class ReflectorService {
    */
   pollStatus(periodMs = 5000): Observable<ReflectorDashboardData | null> {
     return this.selectedProfile.pipe(
-      switchMap(profileId => interval(periodMs).pipe(
+      switchMap(profileId => merge(interval(periodMs), this.refreshRequests).pipe(
         startWith(0),
         switchMap(() => this.fetchStatusOnce(profileId))
       )),
       shareReplay({ bufferSize: 1, refCount: true }),
       takeUntilDestroyed(this.destroyRef)
     );
+  }
+
+  refresh(): void {
+    this.refreshRequests.next();
   }
 
   selectProfile(id: string): void {
@@ -136,8 +142,8 @@ export class ReflectorService {
     const ysfLastHeard: YsfActivity[] = this.uniqueLastHeard(raw.ysfLastTx ?? []).map((tx) => ({
       time: tx.ago,
       callsign: tx.callsign,
-      target: '—',
-      gateway: '—',
+      target: tx.target || '—',
+      gateway: tx.gateway || '—',
       duration: tx.duration,
       loss: '—'
     }));
@@ -145,8 +151,8 @@ export class ReflectorService {
     const dmrLastHeard: DmrActivity[] = this.uniqueLastHeard(raw.dmrLastTx ?? []).map((tx) => ({
       time: tx.ago,
       callsign: tx.callsign,
-      dmrId: '—',
-      talkgroup: '—',
+      dmrId: tx.dmrId || '—',
+      talkgroup: tx.talkgroup ? `TG ${tx.talkgroup}` : '—',
       source: '—',
       duration: tx.duration
     }));
@@ -159,6 +165,7 @@ export class ReflectorService {
 
     return {
       ysfAvailable: raw.ysfAvailable !== false,
+      ysfTrafficAvailable: raw.ysfTrafficAvailable ?? raw.ysfAvailable !== false,
       dmrAvailable: raw.dmrAvailable !== false,
       echolinkAvailable: raw.echolinkAvailable !== false,
       warnings: raw.warnings ?? [],

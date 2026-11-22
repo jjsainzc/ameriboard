@@ -54,4 +54,8 @@ export class ReflectorDashboardComponent implements OnInit {
   selectProfile(event: Event): void {
     this.reflectorService.selectProfile((event.target as HTMLSelectElement).value);
   }
+
+  refresh(): void {
+    this.reflectorService.refresh();
+  }
 }

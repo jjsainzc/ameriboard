@@ -31,6 +31,7 @@ export interface EchoLinkStation {
 
 export interface ReflectorDashboardData {
   ysfAvailable: boolean;
+  ysfTrafficAvailable: boolean;
   dmrAvailable: boolean;
   echolinkAvailable: boolean;
   warnings: string[];

@@ -119,7 +119,7 @@ func TestReflectorRouteReportsMissingLogDirectory(t *testing.T) {
 
 func TestReflectorRouteReadsLogs(t *testing.T) {
 	dir := t.TempDir()
-	now := time.Now()
+	now := time.Now().UTC()
 	name := filepath.Join(dir, "YSFReflector-"+now.Format("2006-01-02")+".log")
 	stamp := now.Format("2006-01-02 15:04:05")
 	log := fmt.Sprintf("M: %s Currently linked repeaters/gateways:\nM: %s TEST1 : 192.0.2.1:1234\nM: %s TEST1 : 192.0.2.1:1234\nM: %s TEST1 : 127.0.0.1:5678\n",

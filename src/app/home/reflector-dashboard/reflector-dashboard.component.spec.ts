@@ -84,6 +84,40 @@ describe('ReflectorDashboardComponent', () => {
     http.verify();
   });
 
+  it('refreshes the selected site manually, including after an error', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/profiles'))
+      .flush([{ id: 'remote', name: 'Remoto', visible: true }]);
+    http.expectOne(request => request.url.endsWith('/api/reflector-status'))
+      .flush('error', { status: 500, statusText: 'Error' });
+    const select = fixture.nativeElement.querySelector('#site') as HTMLSelectElement;
+    fixture.detectChanges();
+    select.value = 'remote';
+    select.dispatchEvent(new Event('change'));
+    http.expectOne(request => request.url.endsWith('/api/profiles/remote/status'))
+      .flush('error', { status: 502, statusText: 'Error' });
+    fixture.detectChanges();
+    const button = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find(element => element.textContent?.includes('Refrescar datos'));
+    expect(button).toBeDefined();
+    button!.click();
+    http.expectOne(request => request.url.endsWith('/api/profiles/remote/status')).flush({
+      header: { title: 'Remoto', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 }
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Remoto');
+    expect(TestBed.inject(ReflectorService).error()).toBeNull();
+    fixture.destroy();
+    http.verify();
+  });
+
   it('hides unavailable EchoLink and shows its attribute legend when available', async () => {
     await TestBed.configureTestingModule({
       imports: [ReflectorDashboardComponent],

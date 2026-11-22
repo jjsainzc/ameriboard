@@ -73,7 +73,7 @@ export class SiteAdminComponent {
           this.busy.set(false);
           this.load();
         },
-        error: err => this.fail(err, 'No se pudo iniciar sesión. Usa HTTPS y revisa la contraseña.')
+        error: err => this.fail(err, 'No se pudo iniciar sesión. Revisa la contraseña.')
       });
   }
 

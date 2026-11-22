@@ -186,9 +186,9 @@ func validProfile(p Profile) error {
 		return fmt.Errorf("%w: nombre inválido", errInvalidProfile)
 	}
 	u, err := url.Parse(p.URL)
-	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil ||
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Hostname() == "" || u.User != nil ||
 		u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" {
-		return fmt.Errorf("%w: la dirección debe ser HTTPS y no incluir credenciales, consulta ni fragmento", errInvalidProfile)
+		return fmt.Errorf("%w: la dirección debe ser HTTP o HTTPS y no incluir credenciales, consulta ni fragmento", errInvalidProfile)
 	}
 	if len(p.URL) > 2048 || (p.Password == "" && (len(p.Token) < 32 || len(p.Token) > 512 || strings.ContainsAny(p.Token, "\r\n"))) ||
 		(p.Password != "" && (len(p.Password) < 8 || len(p.Password) > 72)) {

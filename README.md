@@ -62,7 +62,7 @@ tabla cuando EchoLink responde.
 
 ## Sitios remotos y perfiles
 
-Cada instalación puede consultar otras instalaciones Ameriboard por HTTPS. Un
+Cada instalación puede consultar otras instalaciones Ameriboard por HTTP o HTTPS. Un
 administrador crea los perfiles con el nombre, la URL del dashboard remoto y
 la contraseña del administrador de ese sitio. Cada perfil puede marcarse como visible para
 visitantes; los perfiles ocultos solo aparecen con una sesión de administrador.
@@ -70,20 +70,21 @@ Los visitantes pueden consultar libremente los datos de los perfiles visibles.
 La visibilidad controla el acceso desde esta instalación: no modifica los
 permisos ni la publicación del dashboard en el servidor remoto.
 
-El proxy HTTPS y un certificado válido deben configurarse en cada servidor antes
-de usar perfiles. La administración requiere HTTPS; las direcciones remotas
-deben resolver a IP públicas y usar certificados de confianza. No se siguen
+**HTTP no cifra contraseñas, sesiones ni datos**: úsenlo solo en redes de
+confianza. Se recomienda HTTPS con certificados válidos para cada servidor.
+Las direcciones remotas deben resolver a IP públicas y, con HTTPS, usar
+certificados de confianza. No se siguen
 redirecciones ni se permite conectar a direcciones privadas o de loopback. El
 servicio debe permanecer en loopback o detrás de un proxy confiable que
 reemplace `X-Forwarded-Proto`, como los ejemplos incluidos.
 
-En cada instalación, accede por HTTPS a **Administrar sitios** y crea la
+En cada instalación, accede a **Administrar sitios** y crea la
 contraseña inicial del administrador (entre 8 y 72 bytes). Hazlo inmediatamente:
 hasta que exista un administrador, el primer visitante que complete el formulario
 podrá crearlo. La contraseña local se guarda como hash; la sesión dura como
 máximo ocho horas y la cookie no es persistente.
 
-Para añadir un sitio remoto, introduce su URL HTTPS y su contraseña de
+Para añadir un sitio remoto, introduce su URL HTTP o HTTPS y su contraseña de
 administrador. Obtén esa contraseña del responsable del sitio por un canal
 seguro: también permite administrar directamente ese sitio. Las contraseñas
 remotas se almacenan en el servidor local para poder consultar sus datos; nunca
@@ -109,6 +110,8 @@ Desde el selector del dashboard se puede volver al sitio local en cualquier
 momento. Un sitio remoto inaccesible muestra un error solo para ese sitio; no
 impide consultar los demás. Cuando una fuente de telemetría remota falla, el
 sitio remoto devuelve los datos restantes junto con sus advertencias.
+El botón **Refrescar datos** consulta inmediatamente el sitio seleccionado,
+además de la actualización automática cada cinco segundos.
 
 ## Instalación como servicio
 

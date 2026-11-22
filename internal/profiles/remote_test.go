@@ -24,6 +24,41 @@ func TestPublicIP(t *testing.T) {
 	}
 }
 
+func TestRemoteHTTPAndAdminSession(t *testing.T) {
+	remoteStore := NewStore(t.TempDir())
+	remote := echo.New()
+	NewHandler(remoteStore).Register(remote.Group(""), "", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"title": "remote"})
+	})
+	setup := httptest.NewRequest(http.MethodPost, "http://remote.example/api/admin/setup", strings.NewReader(`{"password":"12345678"}`))
+	setup.Header.Set("Origin", "http://remote.example")
+	setup.Header.Set("X-Ameriboard-Request", "1")
+	rec := httptest.NewRecorder()
+	remote.ServeHTTP(rec, setup)
+	if rec.Code != http.StatusNoContent || len(rec.Result().Cookies()) != 1 || rec.Result().Cookies()[0].Secure {
+		t.Fatalf("HTTP setup: %d, cookies: %+v", rec.Code, rec.Result().Cookies())
+	}
+
+	localStore := NewStore(t.TempDir())
+	profile, err := localStore.save(Profile{Name: "HTTP", URL: "http://remote.example", Password: "12345678", Visible: true}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandler(localStore)
+	handler.client.Transport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		remote.ServeHTTP(recorder, request)
+		return recorder.Result(), nil
+	})
+	local := echo.New()
+	handler.Register(local.Group(""), "", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+	rec = httptest.NewRecorder()
+	local.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://local.example/api/profiles/"+profile.ID+"/status", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "remote") {
+		t.Fatalf("HTTP profile: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestRemoteHTTPSFailureDoesNotAffectOtherSites(t *testing.T) {
 	remoteStore := NewStore(t.TempDir())
 	password := "12345678"

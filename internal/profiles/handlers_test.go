@@ -127,10 +127,10 @@ func TestProfileVisibilityAndRemoteAuthentication(t *testing.T) {
 	}
 }
 
-func TestRejectInsecureProfileAndCrossOriginLogin(t *testing.T) {
+func TestRejectInvalidProfileAndCrossOriginLogin(t *testing.T) {
 	store := NewStore(t.TempDir())
-	if _, err := store.save(Profile{Name: "Bad", URL: "http://example.org", Token: strings.Repeat("x", 32)}, ""); err == nil {
-		t.Fatal("accepted HTTP profile URL")
+	if _, err := store.save(Profile{Name: "Bad", URL: "ftp://example.org", Token: strings.Repeat("x", 32)}, ""); err == nil {
+		t.Fatal("accepted invalid profile URL")
 	}
 	h := NewHandler(store)
 	e := echo.New()

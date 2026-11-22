@@ -113,9 +113,6 @@ func (h *Handler) Register(group *echo.Group, basePath string, status echo.Handl
 	group.PUT("/api/admin/profiles/:id", h.updateProfile)
 	group.DELETE("/api/admin/profiles/:id", h.deleteProfile)
 	group.GET("/api/remote/status", func(c echo.Context) error {
-		if !secureRequest(c.Request()) {
-			return echo.NewHTTPError(http.StatusForbidden, "Se requiere HTTPS")
-		}
 		if _, password, ok := c.Request().BasicAuth(); ok {
 			hash, err := h.store.credential("admin")
 			if err != nil {
@@ -198,7 +195,11 @@ func secureRequest(r *http.Request) bool {
 func adminRequest(c echo.Context) bool {
 	r := c.Request()
 	origin, err := url.Parse(r.Header.Get("Origin"))
-	return secureRequest(r) && err == nil && origin.Scheme == "https" &&
+	scheme := "http"
+	if secureRequest(r) {
+		scheme = "https"
+	}
+	return err == nil && origin.Scheme == scheme &&
 		strings.EqualFold(origin.Host, r.Host) && r.Header.Get("X-Ameriboard-Request") == "1"
 }
 
@@ -262,7 +263,7 @@ func (h *Handler) startSession(c echo.Context, hash []byte) error {
 	h.sessions[id] = session{expires: now.Add(8 * time.Hour), hash: string(hash)}
 	h.mu.Unlock()
 	c.SetCookie(&http.Cookie{Name: "ameriboard_admin", Value: id, Path: h.cookiePath, HttpOnly: true,
-		Secure: true, SameSite: http.SameSiteStrictMode})
+		Secure: secureRequest(c.Request()), SameSite: http.SameSiteStrictMode})
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -274,7 +275,7 @@ func (h *Handler) logoutAdmin(c echo.Context) error {
 	h.mu.Lock()
 	delete(h.sessions, cookie.Value)
 	h.mu.Unlock()
-	c.SetCookie(&http.Cookie{Name: "ameriboard_admin", Path: h.cookiePath, HttpOnly: true, Secure: true,
+	c.SetCookie(&http.Cookie{Name: "ameriboard_admin", Path: h.cookiePath, HttpOnly: true, Secure: secureRequest(c.Request()),
 		SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	return c.NoContent(http.StatusNoContent)
 }

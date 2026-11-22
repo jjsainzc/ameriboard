@@ -1,11 +1,12 @@
 <main>
   <a routerLink="/">Volver al dashboard</a>
   <h1>Administrar sitios</h1>
+  <p>Advertencia: con HTTP las contraseñas y sesiones viajan sin cifrar. Usa HTTPS siempre que sea posible.</p>
   @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
   @if (notice()) { <p role="status">{{ notice() }}</p> }
 
   @if (!authenticated() && setupRequired()) {
-    <p>Crea la contraseña del administrador para este sitio. Se requiere HTTPS.</p>
+    <p>Crea la contraseña del administrador para este sitio.</p>
     <p>Hazlo inmediatamente después de instalar: la primera persona en completar este formulario será el administrador.</p>
     <form [formGroup]="setupForm" (ngSubmit)="setup()">
       <label for="setup-password">Contraseña nueva (mínimo 8 caracteres)
@@ -23,7 +24,7 @@
       </button>
     </form>
   } @else if (!authenticated()) {
-    <p>La administración requiere HTTPS y la contraseña de este sitio.</p>
+    <p>La administración requiere la contraseña de este sitio.</p>
     <form [formGroup]="loginForm" (ngSubmit)="login()">
       <label for="password">Contraseña de administrador
         <input id="password" [type]="loginPasswordVisible() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" />
@@ -59,7 +60,7 @@
       <label for="site-name">Nombre
         <input id="site-name" formControlName="name" maxlength="100" />
       </label>
-      <label for="site-url">URL HTTPS del dashboard remoto
+      <label for="site-url">URL HTTP o HTTPS del dashboard remoto
         <input id="site-url" type="url" formControlName="url" placeholder="https://ejemplo.org/ameriboard" />
       </label>
       <label for="site-password">Contraseña de administrador del sitio remoto

@@ -6,6 +6,7 @@
       <option [value]="site.id">{{ site.name }}{{ site.visible ? '' : ' (privado)' }}</option>
     }
   </select>
+  <button type="button" (click)="refresh()">Refrescar datos</button>
   <a routerLink="/admin">Administrar sitios</a>
 </div>
 @if (profilesError()) { <p role="alert">{{ profilesError() }}</p> }
@@ -41,7 +42,7 @@
       </div>
       <div class="kpi-card border-blue">
         <span class="kpi-label">TRANSMISIONES YSF (24H)</span>
-        <span class="kpi-value">{{ d.ysfAvailable ? d.stats.ysfTx24h : '—' }}</span>
+        <span class="kpi-value">{{ d.ysfTrafficAvailable ? d.stats.ysfTx24h : '—' }}</span>
       </div>
       <div class="kpi-card border-emerald">
         <span class="kpi-label">TRANSMISIONES DMR (24H)</span>
@@ -119,7 +120,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6" class="empty-msg">{{ d.ysfAvailable ? 'Sin actividad reciente en YSF' : 'Datos YSF no disponibles' }}</td>
+                  <td colspan="6" class="empty-msg">{{ d.ysfTrafficAvailable ? 'Sin actividad reciente en YSF' : 'Datos YSF no disponibles' }}</td>
                 </tr>
               }
             </tbody>

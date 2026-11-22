@@ -121,9 +121,14 @@ type StatsInfo struct {
 }
 
 type TXEntry struct {
-	Callsign string `json:"callsign"`
-	Duration string `json:"duration"`
-	Ago      string `json:"ago"`
+	Callsign  string `json:"callsign"`
+	Duration  string `json:"duration"`
+	Ago       string `json:"ago"`
+	Target    string `json:"target,omitempty"`
+	Gateway   string `json:"gateway,omitempty"`
+	DMRID     string `json:"dmrId,omitempty"`
+	Talkgroup string `json:"talkgroup,omitempty"`
+	timestamp time.Time
 }
 
 type DMRActive24h struct {
@@ -173,6 +178,7 @@ type DashboardStatusResponse struct {
 	EchoLinkConnectedList []EchoLinkStation     `json:"echolinkConnectedList"`
 	EchoLinkUptime        string                `json:"echolinkUptime"`
 	YSFAvailable          bool                  `json:"ysfAvailable"`
+	YSFTrafficAvailable   bool                  `json:"ysfTrafficAvailable"`
 	DMRAvailable          bool                  `json:"dmrAvailable"`
 	EchoLinkAvailable     bool                  `json:"echolinkAvailable"`
 	Warnings              []string              `json:"warnings"`
@@ -191,7 +197,8 @@ var (
 
 	// MMDVM_Bridge: detección de ráfaga originada en YSF (para evitar duplicarla como DMR puro)
 	mmdvmYsfNetEndRe = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+YSF,\s+received network end of transmission.*?,\s*(\d+(?:\.\d+)?)\s*seconds`)
-	mmdvmYsfCallRe   = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+YSF,\s+(?:received network data from|GPS Position from)\s+([A-Z0-9\-/]+)`)
+	mmdvmYsfCallRe   = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+YSF,\s+received network data from\s+([A-Z0-9\-/]+)`)
+	mmdvmYsfDataRe   = regexp.MustCompile(`YSF,\s+received network data from\s+[A-Z0-9\-/]+\s+to\s+([A-Z0-9\-/]+)\s+at\s+([A-Z0-9\-/]+)`)
 
 	// MMDVM_Bridge: inicio y fin de transmisión DMR
 	dmrBeginTxRe = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+DMR,\s+Begin TX:.*?src=(\d+).*?dst=(\d+).*?metadata=([A-Z0-9\-/]+)`)
@@ -210,7 +217,6 @@ type activeDMRTx struct {
 	srcID    string
 	dstTG    string
 	start    time.Time
-	fromYSF  bool
 }
 
 type dmrAgg struct {
@@ -357,8 +363,8 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		dmrAvailable = false
 		warnings = append(warnings, "No se encontraron logs DMR recientes")
 	}
-	var lastYSFCall string
 	var lastYSFTime time.Time
+	var pendingNetworkYSF *activeYSFTx
 	var pendingDMRTx *activeDMRTx
 
 	for _, path := range dmrFiles {
@@ -376,8 +382,17 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			// Registrar último indicativo YSF visto en el puente
 			if m := mmdvmYsfCallRe.FindStringSubmatch(line); len(m) == 3 {
 				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
+					call := strings.TrimSpace(m[2])
+					if pendingNetworkYSF != nil && pendingNetworkYSF.callsign != call && !lastYSFTime.Before(cutoff24h) {
+						ysfTX = append(ysfTX, TXEntry{Callsign: pendingNetworkYSF.callsign, Duration: "—", Ago: formatAgo(now.Sub(lastYSFTime)), Target: pendingNetworkYSF.target, Gateway: pendingNetworkYSF.gateway, timestamp: lastYSFTime})
+					}
+					if pendingNetworkYSF == nil || pendingNetworkYSF.callsign != call {
+						pendingNetworkYSF = &activeYSFTx{callsign: call, start: ts}
+					}
 					lastYSFTime = ts
-					lastYSFCall = strings.TrimSpace(m[2])
+					if details := mmdvmYsfDataRe.FindStringSubmatch(line); len(details) == 3 {
+						pendingNetworkYSF.target, pendingNetworkYSF.gateway = details[1], details[2]
+					}
 				}
 				continue
 			}
@@ -390,14 +405,13 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				}
 				secs, _ := strconv.ParseFloat(m[2], 64)
 
-				call := lastYSFCall
-				if call == "" {
-					call = cfg.BridgeCall
+				if pendingNetworkYSF == nil || ts.Before(lastYSFTime) || ts.Sub(lastYSFTime) > 30*time.Second {
+					continue
 				}
-				if ts.Sub(lastYSFTime) > 30*time.Second && cfg.BridgeCall != "" {
-					call = cfg.BridgeCall
-				}
+				call := pendingNetworkYSF.callsign
 				ensureYSFStation(stations24hMap, call)
+				ysfTX = append(ysfTX, TXEntry{Callsign: call, Duration: formatDurationSecs(secs), Ago: formatAgo(now.Sub(ts)), Target: pendingNetworkYSF.target, Gateway: pendingNetworkYSF.gateway, timestamp: ts})
+				pendingNetworkYSF = nil
 				if secs > 0.2 {
 					combined = append(combined, CombinedActivity24h{
 						Time:     ts.Format("15:04:05"),
@@ -420,14 +434,11 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				if call == "" || call == "N0CALL" {
 					call = strings.TrimSpace(m[2])
 				}
-				// Si viene inmediatamente después de tráfico YSF con el mismo indicativo (puente YSF->DMR), lo marcamos
-				fromYSF := lastYSFCall != "" && strings.EqualFold(lastYSFCall, call) && ts.Sub(lastYSFTime) <= 3*time.Second
 				pendingDMRTx = &activeDMRTx{
 					callsign: call,
 					srcID:    strings.TrimSpace(m[2]),
 					dstTG:    strings.TrimSpace(m[3]),
 					start:    ts,
-					fromYSF:  fromYSF,
 				}
 				continue
 			}
@@ -445,29 +456,29 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 
 				call := cfg.BridgeCall
 				tg := cfg.TGIFTalkgroup
-				isBridgeRelay := true
-
 				if pendingDMRTx != nil {
 					call = pendingDMRTx.callsign
+					pendingSrc := pendingDMRTx.srcID
 					if pendingDMRTx.dstTG != "" {
 						tg = pendingDMRTx.dstTG
 					}
 					if !pendingDMRTx.start.IsZero() && ts.Sub(pendingDMRTx.start) > 0 && ts.Sub(pendingDMRTx.start) < 10*time.Minute {
 						secs = ts.Sub(pendingDMRTx.start).Seconds()
 					}
-					isBridgeRelay = pendingDMRTx.fromYSF
 					pendingDMRTx = nil
-				}
-
-				// Contabilizar en DMR activo y tabla DMR si no es un simple rebote de ráfaga YSF
-				if !isBridgeRelay && secs > 0.2 {
+					if secs <= 0 {
+						secs = frames * 0.06
+					}
 					durStr := formatDurationSecs(secs)
 					agoStr := formatAgo(now.Sub(ts))
 
 					dmrTX = append(dmrTX, TXEntry{
-						Callsign: call,
-						Duration: durStr,
-						Ago:      agoStr,
+						Callsign:  call,
+						Duration:  durStr,
+						Ago:       agoStr,
+						DMRID:     pendingSrc,
+						Talkgroup: tg,
+						timestamp: ts,
 					})
 					combined = append(combined, CombinedActivity24h{
 						Time:     ts.Format("15:04:05"),
@@ -500,6 +511,21 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		}
 	}
 
+	if pendingNetworkYSF != nil && !lastYSFTime.Before(cutoff24h) {
+		ysfTX = append(ysfTX, TXEntry{Callsign: pendingNetworkYSF.callsign, Duration: "—", Ago: formatAgo(now.Sub(lastYSFTime)), Target: pendingNetworkYSF.target, Gateway: pendingNetworkYSF.gateway, timestamp: lastYSFTime})
+		ensureYSFStation(stations24hMap, pendingNetworkYSF.callsign)
+	}
+	if pendingYSFTx != nil && !pendingYSFTx.start.Before(cutoff24h) {
+		ysfTX = append(ysfTX, TXEntry{Callsign: pendingYSFTx.callsign, Duration: "—", Ago: formatAgo(now.Sub(pendingYSFTx.start)), Target: pendingYSFTx.target, Gateway: pendingYSFTx.gateway, timestamp: pendingYSFTx.start})
+		ensureYSFStation(stations24hMap, pendingYSFTx.callsign)
+	}
+	if pendingDMRTx != nil && !pendingDMRTx.start.Before(cutoff24h) {
+		dmrTX = append(dmrTX, TXEntry{
+			Callsign: pendingDMRTx.callsign, Duration: "—", Ago: formatAgo(now.Sub(pendingDMRTx.start)),
+			DMRID: pendingDMRTx.srcID, Talkgroup: pendingDMRTx.dstTG, timestamp: pendingDMRTx.start,
+		})
+	}
+
 	// Actualizar estados de estaciones YSF según último snapshot activo
 	activeNowSet := make(map[string]struct{}, len(currentSnapshotList))
 	bridgeOnline := false
@@ -515,8 +541,8 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		}
 	}
 
-	reverseTX(ysfTX)
-	reverseTX(dmrTX)
+	sort.SliceStable(ysfTX, func(i, j int) bool { return ysfTX[i].timestamp.After(ysfTX[j].timestamp) })
+	sort.SliceStable(dmrTX, func(i, j int) bool { return dmrTX[i].timestamp.After(dmrTX[j].timestamp) })
 	sort.Slice(combined, func(i, j int) bool {
 		return combined[i].Time > combined[j].Time
 	})
@@ -586,11 +612,13 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		EchoLinkConnectedList: echoLinkConnected,
 		EchoLinkUptime:        echoLinkUptime,
 		YSFAvailable:          ysfAvailable,
+		YSFTrafficAvailable:   ysfAvailable || dmrAvailable,
 		DMRAvailable:          dmrAvailable,
 		EchoLinkAvailable:     echoLinkAvailable,
 		Warnings:              warnings,
 	}
 
+	c.Response().Header().Set("Cache-Control", "no-store")
 	return c.JSON(http.StatusOK, resp)
 }
 
@@ -615,9 +643,12 @@ func recordYSFTx(
 	agoStr := formatAgo(now.Sub(end))
 
 	*ysfTX = append(*ysfTX, TXEntry{
-		Callsign: tx.callsign,
-		Duration: durStr,
-		Ago:      agoStr,
+		Callsign:  tx.callsign,
+		Duration:  durStr,
+		Ago:       agoStr,
+		Target:    tx.target,
+		Gateway:   tx.gateway,
+		timestamp: end,
 	})
 	*combined = append(*combined, CombinedActivity24h{
 		Time:     tx.start.Format("15:04:05"),
@@ -684,7 +715,7 @@ func parseEchoLinkUsers(output string) []EchoLinkStation {
 		if len(fields) < 2 {
 			continue
 		}
-		number := fields[0]
+		number := strings.TrimSuffix(fields[0], ".")
 		user := fields[1]
 		if strings.EqualFold(number, "#") || strings.EqualFold(number, "Connected") ||
 			strings.EqualFold(user, "User") || strings.EqualFold(user, "Nodes") {
@@ -720,7 +751,7 @@ func candidateLogFilesAnyPrefix(dir string, prefixes []string, now time.Time) ([
 	var files []string
 	seen := make(map[string]struct{})
 	for _, offset := range []int{-1, 0} {
-		d := now.AddDate(0, 0, offset)
+		d := now.UTC().AddDate(0, 0, offset)
 		for _, pfx := range prefixes {
 			name := fmt.Sprintf("%s-%s.log", pfx, d.Format("2006-01-02"))
 			full := filepath.Join(dir, name)
@@ -740,7 +771,8 @@ func candidateLogFilesAnyPrefix(dir string, prefixes []string, now time.Time) ([
 
 func parseLogTime(raw string, loc *time.Location) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
-	return time.ParseInLocation("2006-01-02 15:04:05", raw, loc)
+	ts, err := time.ParseInLocation("2006-01-02 15:04:05", raw, time.UTC)
+	return ts.In(loc), err
 }
 
 func formatDurationSecs(secs float64) string {
@@ -767,12 +799,6 @@ func formatAgo(d time.Duration) string {
 		return fmt.Sprintf("hace %dm", int(d.Minutes()))
 	}
 	return fmt.Sprintf("hace %dh", int(d.Hours()))
-}
-
-func reverseTX(s []TXEntry) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
 }
 
 func limitTX(s []TXEntry, max int) []TXEntry {
