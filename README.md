@@ -1,5 +1,7 @@
 # Ameriboard
 
+> **NOTA**: En desarrollo, no esta funcional todavia
+
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
 
