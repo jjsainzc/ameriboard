@@ -1,0 +1,219 @@
+:host {
+  display: block;
+  background-color: #0b0e17;
+  color: #e2e8f0;
+  min-height: 100vh;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  padding: 1.5rem;
+}
+
+.dashboard-wrapper {
+  max-width: 1440px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #131724;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #1e2538;
+
+  h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #f8fafc;
+  }
+
+  .subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    color: #94a3b8;
+  }
+
+  .header-badges {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    padding: 0.4rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .badge-primary {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+
+  .badge-status {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+}
+
+/* Tarjetas KPI */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.kpi-card {
+  background: #131724;
+  border: 1px solid #1e2538;
+  border-top-width: 3px;
+  border-radius: 10px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+
+  &.border-cyan { border-top-color: #06b6d4; }
+  &.border-blue { border-top-color: #3b82f6; }
+  &.border-emerald { border-top-color: #10b981; }
+  &.border-purple { border-top-color: #8b5cf6; }
+
+  .kpi-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+    letter-spacing: 0.05em;
+  }
+
+  .kpi-value {
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: #f8fafc;
+  }
+}
+
+/* Grid de tablas superiores */
+.tables-grid-top {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 1.25rem;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel-card {
+  background: #131724;
+  border: 1px solid #1e2538;
+  border-radius: 12px;
+  overflow: hidden;
+
+  .panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #1e2538;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+
+    .count-pill, .refresh-tag {
+      background: #1e2538;
+      color: #94a3b8;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+    }
+  }
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    background: #0f131f;
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid #1e2538;
+  }
+
+  td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #1a2030;
+    color: #cbd5e1;
+  }
+
+  tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  tbody tr.row-tx {
+    background: rgba(239, 68, 68, 0.12);
+  }
+
+  .callsign {
+    font-weight: 700;
+    color: #38bdf8;
+  }
+
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+  }
+
+  .status-dot {
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: #1e2538;
+    color: #94a3b8;
+
+    &.tx {
+      background: #ef4444;
+      color: #fff;
+    }
+  }
+
+  .tg-badge {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .empty-msg {
+    text-align: center;
+    color: #64748b;
+    padding: 1.5rem;
+  }
+}

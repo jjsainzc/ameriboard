@@ -1,0 +1,31 @@
+version: 2
+project_name: ameriboard
+
+before:
+  hooks:
+    - npm ci
+    - npm run build
+
+builds:
+  - id: ameriboard
+    main: ./cmd/ameriboard
+    binary: ameriboard
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+
+archives:
+  - formats: [tar.gz]
+    files:
+      - README.md
+
+checksum:
+  name_template: checksums.txt

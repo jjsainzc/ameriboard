@@ -1,0 +1,151 @@
+@if (data(); as d) {
+  <div class="dashboard-wrapper">
+    <!-- Cabecera -->
+    <header class="dash-header">
+      <div>
+        <h1>{{ d.header.title }}</h1>
+        <p class="subtitle">{{ d.header.subtitle }}</p>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-primary">{{ d.header.badge }}</span>
+        <span class="badge badge-status">Puente local: {{ d.header.localBridgeStatus }}</span>
+      </div>
+    </header>
+
+    <!-- 4 Tarjetas KPI Superiores -->
+    <section class="kpi-grid">
+      <div class="kpi-card border-cyan">
+        <span class="kpi-label">CONECTADOS YSF AHORA</span>
+        <span class="kpi-value">{{ d.stats.ysfConnectedCount }}</span>
+      </div>
+      <div class="kpi-card border-blue">
+        <span class="kpi-label">ESTACIONES YSF HOY</span>
+        <span class="kpi-value">{{ d.stats.ysfTotalHeardToday }}</span>
+      </div>
+      <div class="kpi-card border-emerald">
+        <span class="kpi-label">PUENTE DMR / TGIF</span>
+        <span class="kpi-value">{{ d.stats.dmrActiveCount }}</span>
+      </div>
+      <div class="kpi-card border-purple">
+        <span class="kpi-label">TRÁFICO DMR HOY</span>
+        <span class="kpi-value">{{ d.stats.dmrTotalHeardToday }}</span>
+      </div>
+    </section>
+
+    <!-- Fila Central: Estaciones Conectadas + Últimos Escuchados YSF -->
+    <section class="tables-grid-top">
+      <!-- Tabla 1: Estaciones o Gateways Conectados -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <h2>Estación o gateway conectado</h2>
+          <span class="count-pill">{{ d.ysfConnected.length }}</span>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Indicativo</th>
+                <th>Gateway</th>
+                <th>Tiempo</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (st of d.ysfConnected; track st.callsign) {
+                <tr [class.row-tx]="st.status === 'TX'">
+                  <td class="callsign">{{ st.callsign }}</td>
+                  <td>{{ st.gateway }}</td>
+                  <td class="mono">{{ st.duration }}</td>
+                  <td>
+                    <span class="status-dot" [class.tx]="st.status === 'TX'">
+                      {{ st.status }}
+                    </span>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="4" class="empty-msg">No hay estaciones conectadas</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tabla 2: Últimos Escuchados YSF -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <h2>Últimos escuchados YSF</h2>
+          <span class="refresh-tag">Auto 5s</span>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Indicativo</th>
+                <th>Destino</th>
+                <th>Gateway</th>
+                <th>Duración</th>
+                <th>Pérdida</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of d.ysfLastHeard; track item.time + item.callsign) {
+                <tr>
+                  <td class="mono">{{ item.time }}</td>
+                  <td class="callsign">{{ item.callsign }}</td>
+                  <td>{{ item.target }}</td>
+                  <td>{{ item.gateway }}</td>
+                  <td class="mono">{{ item.duration }}</td>
+                  <td class="mono">{{ item.loss }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6" class="empty-msg">Sin actividad reciente en YSF</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Fila Inferior: Actividad DMR / TGIF -->
+    <section class="panel-card full-width">
+      <div class="panel-header">
+        <h2>Actividad reciente puente DMR / TGIF</h2>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Indicativo</th>
+              <th>DMR ID</th>
+              <th>Talkgroup</th>
+              <th>Origen</th>
+              <th>Duración</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (dmr of d.dmrLastHeard; track dmr.time + dmr.callsign) {
+              <tr>
+                <td class="mono">{{ dmr.time }}</td>
+                <td class="callsign">{{ dmr.callsign }}</td>
+                <td class="mono">{{ dmr.dmrId }}</td>
+                <td><span class="tg-badge">{{ dmr.talkgroup }}</span></td>
+                <td>{{ dmr.source }}</td>
+                <td class="mono">{{ dmr.duration }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="empty-msg">Sin tráfico DMR registrado</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+}
