@@ -3,7 +3,8 @@
 # Compiled output
 /dist
 /ameriboard
-/internal/web/assets/dist/
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
 /tmp
 /out-tsc
 /bazel-out

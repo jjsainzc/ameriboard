@@ -1,13 +1,22 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"regexp"
 	"strings"
+	"syscall"
+	"time"
 
+	"ameriboard/internal/config"
+	"ameriboard/internal/controllers"
+	"ameriboard/internal/routes"
 	"ameriboard/internal/web"
 
 	"github.com/labstack/echo/v4"
@@ -17,48 +26,118 @@ import (
 var validBasePath = regexp.MustCompile(`^(/[A-Za-z0-9._~-]+)*$`)
 
 func main() {
-	listenAddr := getEnv("LISTEN_ADDR", "127.0.0.1:8082")
-	basePath, err := normalizeBasePath(getEnv("BASE_PATH", "/dashboard"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	frontend, err := web.Handler(basePath)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	e := newServer(basePath, frontend)
-	log.Printf("Escuchando en %s bajo subruta %s", listenAddr, basePath)
-	if err := e.Start(listenAddr); err != nil && err != http.ErrServerClosed {
+	if err := run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func newServer(basePath string, frontend http.Handler) *echo.Echo {
+func run() error {
+	configPath := flag.String("config", "", "ruta de configuración YAML")
+	initPath := flag.String("init-config", "", "crear configuración YAML inicial")
+	legacyEnv := flag.String("legacy-env", "", "archivo de entorno anterior")
+	proxySocket := flag.String("proxy-socket", "", "socket Unix para el proxy")
+	checkProxy := flag.Bool("check-proxy", false, "validar la configuración para el proxy instalado")
+	flag.Parse()
+	if *initPath != "" {
+		cfg, err := config.Initial(*initPath, *legacyEnv)
+		if err != nil {
+			return err
+		}
+		log.Printf("Configuración creada con dirección %s", cfg.ListenAddr)
+		return nil
+	}
+	cfg, err := config.Load(*configPath)
+	if err != nil {
+		return err
+	}
+	basePath, err := normalizeBasePath(cfg.BasePath)
+	if err != nil {
+		return err
+	}
+	if *checkProxy {
+		if basePath != "/ameriboard" {
+			return fmt.Errorf("el proxy automático requiere base_path /ameriboard, no %q", basePath)
+		}
+		return nil
+	}
+	frontend, err := web.Handler(basePath)
+	if err != nil {
+		return err
+	}
+
+	reflector := controllers.NewReflectorService(controllers.ReflectorConfig{
+		Title: cfg.Title, Subtitle: cfg.Subtitle, Badge: cfg.Badge,
+		YSFReflector: cfg.YSFReflector, TGIFTalkgroup: cfg.TGIFTalkgroup,
+		BridgeCall: cfg.BridgeCall, YSFLogDir: cfg.YSFLogDir, DMRLogDir: cfg.DMRLogDir,
+	})
+	e := newServer(basePath, frontend, reflector)
+	tcp, err := net.Listen("tcp", cfg.ListenAddr)
+	if err != nil {
+		return fmt.Errorf("escuchar en %s: %w", cfg.ListenAddr, err)
+	}
+	defer tcp.Close()
+
+	server := &http.Server{Handler: e}
+	errors := make(chan error, 2)
+	if *proxySocket != "" {
+		socket, err := net.Listen("unix", *proxySocket)
+		if err != nil {
+			return fmt.Errorf("abrir socket del proxy: %w", err)
+		}
+		defer socket.Close()
+		if err := os.Chmod(*proxySocket, 0666); err != nil {
+			return fmt.Errorf("configurar socket del proxy: %w", err)
+		}
+		go func() { errors <- server.Serve(socket) }()
+	}
+	log.Printf("Escuchando en %s bajo subruta %s", cfg.ListenAddr, basePath)
+	go func() { errors <- server.Serve(tcp) }()
+	if err := notifyReady(); err != nil {
+		server.Close()
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	select {
+	case err = <-errors:
+		server.Close()
+		if err != http.ErrServerClosed {
+			return err
+		}
+	case <-ctx.Done():
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdown); err != nil {
+			server.Close()
+			return fmt.Errorf("detener servidor: %w", err)
+		}
+	}
+	return nil
+}
+
+func notifyReady() error {
+	address := os.Getenv("NOTIFY_SOCKET")
+	if address == "" {
+		return nil
+	}
+	conn, err := net.DialUnix("unixgram", nil, &net.UnixAddr{Name: address, Net: "unixgram"})
+	if err != nil {
+		return fmt.Errorf("conectar a systemd: %w", err)
+	}
+	defer conn.Close()
+	if _, err := conn.Write([]byte("READY=1")); err != nil {
+		return fmt.Errorf("notificar a systemd: %w", err)
+	}
+	return nil
+}
+
+func newServer(basePath string, frontend http.Handler, reflector *controllers.ReflectorService) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	e.GET("/healthz", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
-	group := e.Group(basePath)
-	group.GET("/api/reflector-status", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]any{"status": "ok"})
-	})
-	group.GET("/api/*", func(c echo.Context) error {
-		return echo.ErrNotFound
-	})
-
-	if basePath != "" {
-		group.GET("", func(c echo.Context) error {
-			return c.Redirect(http.StatusMovedPermanently, basePath+"/")
-		})
-	}
-	handler := echo.WrapHandler(http.StripPrefix(basePath, frontend))
-	group.GET("/", handler)
-	group.GET("/*", handler)
+	routes.Register(e, basePath, frontend, reflector)
 	return e
 }
 
@@ -80,11 +159,4 @@ func normalizeBasePath(p string) (string, error) {
 		}
 	}
 	return p, nil
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

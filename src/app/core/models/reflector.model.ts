@@ -1,8 +1,8 @@
 export interface YsfStation {
   callsign: string;
+  ip: string;
   gateway: string;
-  duration: string;
-  status: 'TX' | 'IDLE';
+  since: string;
 }
 
 export interface YsfActivity {
@@ -33,9 +33,9 @@ export interface ReflectorDashboardData {
   };
   stats: {
     ysfConnectedCount: number;
-    ysfTotalHeardToday: number;
-    dmrActiveCount: number;
-    dmrTotalHeardToday: number;
+    ysfTx24h: number;
+    dmrTx24h: number;
+    stations24h: number;
   };
   ysfConnected: YsfStation[];
   ysfLastHeard: YsfActivity[];

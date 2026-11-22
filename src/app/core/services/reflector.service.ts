@@ -5,7 +5,7 @@ import { Observable, interval, switchMap, startWith, catchError, of, tap, map, s
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity } from '../models/reflector.model';
 
-/** Forma cruda devuelta por DashboardStatusResponse en reflector_handler.go */
+/** Forma devuelta por DashboardStatusResponse. */
 interface BackendStatusRaw {
   header: {
     title: string;
@@ -20,16 +20,16 @@ interface BackendStatusRaw {
     dmrTx24h: number;
     stations24h: number;
   };
-  ysfLastTx?: Array<{ callsign: string; duration: string; ago: string }>;
-  dmrLastTx?: Array<{ callsign: string; duration: string; ago: string }>;
-  ysfConnectedList?: Array<{ callsign: string; type: string; since: string }>;
+  ysfLastTx?: Array<{ callsign: string; duration: string; ago: string }> | null;
+  dmrLastTx?: Array<{ callsign: string; duration: string; ago: string }> | null;
+  ysfConnectedList?: Array<{ callsign: string; ip: string; type: string; since: string }> | null;
   combined24h?: Array<{
     time: string;
     mode: string;
     callsign: string;
     duration: string;
     detail: string;
-  }>;
+  }> | null;
 }
 
 @Injectable({
@@ -47,7 +47,7 @@ export class ReflectorService {
   readonly loading = signal<boolean>(true);
 
   /**
-   * Resuelve la ruta del endpoint respetando <base href="/dashboard/">
+   * Resuelve la ruta del endpoint respetando <base href="/ameriboard/">
    * cuando el binario Go embebe el SPA bajo BASE_PATH.
    */
   private resolveStatusUrl(): string {
@@ -59,7 +59,12 @@ export class ReflectorService {
   /** Petición única normalizada */
   fetchStatusOnce(): Observable<ReflectorDashboardData | null> {
     return this.http.get<BackendStatusRaw>(this.statusUrl).pipe(
-      map((raw) => this.mapBackendToModel(raw)),
+      map((raw) => {
+        if (!raw?.header || !raw.stats) {
+          throw new Error('Respuesta de telemetría incompleta');
+        }
+        return this.mapBackendToModel(raw);
+      }),
       tap((mapped) => {
         this.data.set(mapped);
         this.error.set(null);
@@ -89,36 +94,36 @@ export class ReflectorService {
   private mapBackendToModel(raw: BackendStatusRaw): ReflectorDashboardData {
     const ysfConnected: YsfStation[] = (raw.ysfConnectedList ?? []).map((item) => ({
       callsign: item.callsign,
+      ip: item.ip,
       gateway: item.type,
-      duration: item.since,
-      status: 'IDLE'
+      since: item.since
     }));
 
     const ysfLastHeard: YsfActivity[] = (raw.ysfLastTx ?? []).map((tx) => ({
       time: tx.ago,
       callsign: tx.callsign,
-      target: 'ALL',
-      gateway: raw.header?.badge ?? 'YSF',
+      target: '—',
+      gateway: '—',
       duration: tx.duration,
-      loss: '0.0%'
+      loss: '—'
     }));
 
     const dmrLastHeard: DmrActivity[] = (raw.dmrLastTx ?? []).map((tx) => ({
       time: tx.ago,
       callsign: tx.callsign,
       dmrId: '—',
-      talkgroup: 'TGIF',
-      source: 'MMDVM_Bridge',
+      talkgroup: '—',
+      source: '—',
       duration: tx.duration
     }));
 
     return {
       header: raw.header,
       stats: {
-        ysfConnectedCount: raw.stats?.ysfConnectedNow ?? ysfConnected.length,
-        ysfTotalHeardToday: raw.stats?.ysfTx24h ?? ysfLastHeard.length,
-        dmrActiveCount: raw.stats?.dmrTx24h ?? dmrLastHeard.length,
-        dmrTotalHeardToday: raw.stats?.stations24h ?? 0
+        ysfConnectedCount: raw.stats.ysfConnectedNow,
+        ysfTx24h: raw.stats.ysfTx24h,
+        dmrTx24h: raw.stats.dmrTx24h,
+        stations24h: raw.stats.stations24h
       },
       ysfConnected,
       ysfLastHeard,

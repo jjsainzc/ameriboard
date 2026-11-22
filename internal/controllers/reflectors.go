@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 )
 
 /**
@@ -82,14 +81,14 @@ JSON, ejemplo
 */
 
 type ReflectorConfig struct {
-	ListenAddr    string
 	Title         string
+	Subtitle      string
+	Badge         string
 	YSFReflector  string
 	TGIFTalkgroup string
 	BridgeCall    string
 	YSFLogDir     string
 	DMRLogDir     string
-	CORSOrigins   []string
 }
 
 type ReflectorService struct {
@@ -140,6 +139,7 @@ type YSFStation24h struct {
 
 type YSFConnectedNow struct {
 	Callsign string `json:"callsign"`
+	IP       string `json:"ip"`
 	Type     string `json:"type"`
 	Since    string `json:"since"`
 }
@@ -168,7 +168,7 @@ type DashboardStatusResponse struct {
 var (
 	// YSFReflector: snapshot de gateways/repetidores enlazados
 	ysfLinkedHeaderRe = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+Currently linked repeaters/gateways:`)
-	ysfLinkedEntryRe  = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Z0-9\-/]+)\s+:\s+(\d+\.\d+\.\d+\.\d+:\d+)`)
+	ysfLinkedEntryRe  = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Z0-9\-/]+)\s+:\s+((\d+\.\d+\.\d+\.\d+):\d+)`)
 
 	// YSFReflector: inicio y fin de ráfaga YSF
 	ysfDataStartRe = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+Received data from\s+([A-Z0-9\-/]+)\s+to\s+([A-Z0-9\-/]+)\s+at\s+([A-Z0-9\-/]+)`)
@@ -205,42 +205,6 @@ type dmrAgg struct {
 	lastSeen  time.Time
 }
 
-func main() {
-	cfg := ReflectorConfig{
-		ListenAddr:    getEnv("LISTEN_ADDR", ":8080"),
-		Title:         getEnv("DASHBOARD_TITLE", "CONFERENCIA AMERINET"),
-		YSFReflector:  getEnv("YSF_REFLECTOR_ID", "74001"),
-		TGIFTalkgroup: getEnv("TGIF_TG", "7401"),
-		BridgeCall:    getEnv("BRIDGE_CALLSIGN", "HC1LNM"),
-		YSFLogDir:     getEnv("YSF_LOG_DIR", "/var/log/YSFReflector"),
-		DMRLogDir:     getEnv("DMR_LOG_DIR", "/var/log/mmdvm"),
-		CORSOrigins:   splitCSV(getEnv("CORS_ORIGINS", "http://localhost:4200")),
-	}
-
-	svc := NewReflectorService(cfg)
-
-	e := echo.New()
-	e.HideBanner = true
-	e.Use(middleware.Logger())
-	e.Use(middleware.Recover())
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: cfg.CORSOrigins,
-		AllowMethods: []string{http.MethodGet, http.MethodOptions},
-	}))
-
-	e.GET("/healthz", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
-
-	api := e.Group("/api")
-	api.GET("/reflector-status", svc.GetStatus)
-
-	log.Printf("Iniciando servidor en %s | YSF=%s | TGIF=%s", cfg.ListenAddr, cfg.YSFReflector, cfg.TGIFTalkgroup)
-	if err := e.Start(cfg.ListenAddr); err != nil {
-		log.Fatal(err)
-	}
-}
-
 func (s *ReflectorService) GetStatus(c echo.Context) error {
 	s.mu.RLock()
 	cfg := s.cfg
@@ -263,11 +227,14 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	var pendingYSFTx *activeYSFTx
 
 	// 1. Parsear YSFReflector
-	ysfFiles := candidateLogFiles(cfg.YSFLogDir, "YSFReflector", now)
+	ysfFiles, err := candidateLogFiles(cfg.YSFLogDir, "YSFReflector", now)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs YSF").SetInternal(err)
+	}
 	for _, path := range ysfFiles {
 		f, err := os.Open(path)
 		if err != nil {
-			continue
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs YSF").SetInternal(err)
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -285,7 +252,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			}
 
 			if inLinkedBlock {
-				if m := ysfLinkedEntryRe.FindStringSubmatch(line); len(m) == 4 {
+				if m := ysfLinkedEntryRe.FindStringSubmatch(line); len(m) == 5 {
 					call := strings.TrimSpace(m[2])
 					addr := strings.TrimSpace(m[3])
 
@@ -299,6 +266,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 						seenInSnapshot[key] = struct{}{}
 						currentSnapshotList = append(currentSnapshotList, YSFConnectedNow{
 							Callsign: call,
+							IP:       m[4],
 							Type:     connType,
 							Since:    currentSnapshotTime.Format("03:04 PM"),
 						})
@@ -345,11 +313,18 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				continue
 			}
 		}
+		scanErr := scanner.Err()
 		_ = f.Close()
+		if scanErr != nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs YSF").SetInternal(scanErr)
+		}
 	}
 
 	// 2. Parsear MMDVM_Bridge (soporta nombres MMDVM_Bridge-YYYY-MM-DD.log o mmdvm_bridge-YYYY-MM-DD.log)
-	dmrFiles := candidateLogFilesAnyPrefix(cfg.DMRLogDir, []string{"MMDVM_Bridge", "mmdvm_bridge"}, now)
+	dmrFiles, err := candidateLogFilesAnyPrefix(cfg.DMRLogDir, []string{"MMDVM_Bridge", "mmdvm_bridge"}, now)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs DMR").SetInternal(err)
+	}
 	var lastYSFCall string
 	var lastYSFTime time.Time
 	var pendingDMRTx *activeDMRTx
@@ -357,7 +332,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	for _, path := range dmrFiles {
 		f, err := os.Open(path)
 		if err != nil {
-			continue
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs DMR").SetInternal(err)
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -481,7 +456,11 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				continue
 			}
 		}
+		scanErr := scanner.Err()
 		_ = f.Close()
+		if scanErr != nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs DMR").SetInternal(scanErr)
+		}
 	}
 
 	// Actualizar estados de estaciones YSF según último snapshot activo
@@ -541,9 +520,10 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 
 	resp := DashboardStatusResponse{
 		Header: HeaderInfo{
-			Title:             cfg.Title,
-			Subtitle:          fmt.Sprintf("Reflector YSF %s y TGIF DMR TG %s · se actualiza cada 5 segundos · última lectura %s", cfg.YSFReflector, cfg.TGIFTalkgroup, lastUpdateStr),
-			Badge:             "Reflector + TGIF DMR",
+			Title: cfg.Title,
+			Subtitle: strings.NewReplacer("{ysf_reflector}", cfg.YSFReflector, "{tgif_tg}", cfg.TGIFTalkgroup).Replace(cfg.Subtitle) +
+				fmt.Sprintf(" · se actualiza cada 5 segundos · última lectura %s", lastUpdateStr),
+			Badge:             cfg.Badge,
 			LocalBridgeStatus: bridgeStatus,
 			LastUpdate:        lastUpdateStr,
 		},
@@ -612,11 +592,14 @@ func ensureYSFStation(m map[string]*YSFStation24h, call string) *YSFStation24h {
 	return st
 }
 
-func candidateLogFiles(dir, prefix string, now time.Time) []string {
+func candidateLogFiles(dir, prefix string, now time.Time) ([]string, error) {
 	return candidateLogFilesAnyPrefix(dir, []string{prefix}, now)
 }
 
-func candidateLogFilesAnyPrefix(dir string, prefixes []string, now time.Time) []string {
+func candidateLogFilesAnyPrefix(dir string, prefixes []string, now time.Time) ([]string, error) {
+	if _, err := os.ReadDir(dir); err != nil {
+		return nil, err
+	}
 	var files []string
 	seen := make(map[string]struct{})
 	for _, offset := range []int{-1, 0} {
@@ -630,17 +613,16 @@ func candidateLogFilesAnyPrefix(dir string, prefixes []string, now time.Time) []
 			if _, err := os.Stat(full); err == nil {
 				seen[full] = struct{}{}
 				files = append(files, full)
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return nil, err
 			}
 		}
 	}
-	return files
+	return files, nil
 }
 
 func parseLogTime(raw string, loc *time.Location) (time.Time, error) {
 	raw = strings.TrimSpace(raw)
-	if len(raw) > 19 {
-		return time.ParseInLocation("2006-01-02 15:04:05.000", raw[:23], loc)
-	}
 	return time.ParseInLocation("2006-01-02 15:04:05", raw, loc)
 }
 
@@ -688,22 +670,4 @@ func limitCombined(s []CombinedActivity24h, max int) []CombinedActivity24h {
 		return s
 	}
 	return s[:max]
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
-func splitCSV(raw string) []string {
-	parts := strings.Split(raw, ",")
-	var out []string
-	for _, p := range parts {
-		if t := strings.TrimSpace(p); t != "" {
-			out = append(out, t)
-		}
-	}
-	return out
 }

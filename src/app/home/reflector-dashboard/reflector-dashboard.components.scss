@@ -105,7 +105,7 @@
 /* Grid de tablas superiores */
 .tables-grid-top {
   display: grid;
-  grid-template-columns: 1fr 1.6fr;
+  grid-template-columns: 1fr 1.3fr;
   gap: 1.25rem;
 
   @media (max-width: 1024px) {
@@ -145,6 +145,17 @@
 
 .table-responsive {
   overflow-x: auto;
+}
+
+.ysf-last-heard {
+  th:nth-child(2), td:nth-child(2),
+  th:nth-child(5), td:nth-child(5),
+  th:nth-child(6), td:nth-child(6) {
+    width: 1%;
+    padding-left: 0.45rem;
+    padding-right: 0.45rem;
+    white-space: nowrap;
+  }
 }
 
 table {

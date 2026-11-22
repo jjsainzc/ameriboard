@@ -1,0 +1,19 @@
+# Gestionado por Ameriboard.
+# Configuración global. Requiere proxy, proxy_http, proxy_wstunnel y headers.
+# Usa el socket estable del servicio y BASE_PATH=/ameriboard.
+
+RedirectMatch 301 ^/ameriboard$ /ameriboard/
+
+<Location /ameriboard/>
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+    RequestHeader set X-Forwarded-Prefix "/ameriboard"
+</Location>
+
+# Reservado para WebSockets: debe existir un endpoint en el backend para usarse.
+ProxyPass        /ameriboard/ws unix:/run/ameriboard/proxy.sock|ws://localhost/ameriboard/ws keepalive=On timeout=3600
+ProxyPassReverse /ameriboard/ws unix:/run/ameriboard/proxy.sock|ws://localhost/ameriboard/ws
+
+# Mantener /ameriboard/ en la ruta enviada a Go.
+ProxyPass        /ameriboard/ unix:/run/ameriboard/proxy.sock|http://localhost/ameriboard/ keepalive=On
+ProxyPassReverse /ameriboard/ unix:/run/ameriboard/proxy.sock|http://localhost/ameriboard/

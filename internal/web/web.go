@@ -11,12 +11,12 @@ import (
 	"strings"
 )
 
-//go:embed all:assets
+//go:embed all:dist
 var distFS embed.FS
 
 // Handler serves the embedded Angular build under basePath.
 func Handler(basePath string) (http.Handler, error) {
-	sub, err := fs.Sub(distFS, "assets/dist")
+	sub, err := fs.Sub(distFS, "dist")
 	if err != nil {
 		return nil, fmt.Errorf("open embedded frontend: %w", err)
 	}

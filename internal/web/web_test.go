@@ -13,7 +13,7 @@ func TestHandler(t *testing.T) {
 		"index.html": &fstest.MapFile{Data: []byte(`<html><base href="/"><script src="main.js"></script></html>`)},
 		"main.js":    &fstest.MapFile{Data: []byte("javascript")},
 	}
-	for _, base := range []string{"", "/dashboard", "/some/panel"} {
+	for _, base := range []string{"", "/ameriboard", "/some/panel"} {
 		handler, err := newHandler(files, base)
 		if err != nil {
 			t.Fatal(err)

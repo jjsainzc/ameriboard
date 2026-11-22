@@ -1,24 +1,23 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
 import { App } from './app';
+import { routes } from './app.routes';
 
 describe('App', () => {
-  beforeEach(async () => {
+  it('loads the dashboard route', async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-    })
-      .compileComponents();
-  });
-
-  it('should create the app', () => {
+      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
     const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
-  it('should render title', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, ameriboard');
+    fixture.detectChanges();
+    await TestBed.inject(Router).navigateByUrl('/');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-reflector-dashboard')).toBeTruthy();
+    TestBed.inject(HttpTestingController).expectOne((request) => request.url.endsWith('/api/reflector-status'))
+      .flush({ header: { title: 'Test' }, stats: {} });
+    fixture.destroy();
   });
 });
