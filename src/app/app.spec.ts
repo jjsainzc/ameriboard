@@ -18,6 +18,7 @@ describe('App', () => {
     expect(fixture.nativeElement.querySelector('app-reflector-dashboard')).toBeTruthy();
     TestBed.inject(HttpTestingController).expectOne((request) => request.url.endsWith('/api/reflector-status'))
       .flush({ header: { title: 'Test' }, stats: {} });
+    TestBed.inject(HttpTestingController).expectOne((request) => request.url.endsWith('/api/profiles')).flush([]);
     fixture.destroy();
   });
 });

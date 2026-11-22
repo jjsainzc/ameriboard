@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -81,14 +83,15 @@ JSON, ejemplo
 */
 
 type ReflectorConfig struct {
-	Title         string
-	Subtitle      string
-	Badge         string
-	YSFReflector  string
-	TGIFTalkgroup string
-	BridgeCall    string
-	YSFLogDir     string
-	DMRLogDir     string
+	Title           string
+	Subtitle        string
+	Badge           string
+	YSFReflector    string
+	TGIFTalkgroup   string
+	BridgeCall      string
+	YSFLogDir       string
+	DMRLogDir       string
+	EchoLinkCommand string
 }
 
 type ReflectorService struct {
@@ -144,6 +147,12 @@ type YSFConnectedNow struct {
 	Since    string `json:"since"`
 }
 
+type EchoLinkStation struct {
+	Number    string `json:"number"`
+	User      string `json:"user"`
+	Attribute string `json:"attribute"`
+}
+
 type CombinedActivity24h struct {
 	Time     string `json:"time"`
 	Mode     string `json:"mode"`
@@ -153,14 +162,20 @@ type CombinedActivity24h struct {
 }
 
 type DashboardStatusResponse struct {
-	Header           HeaderInfo            `json:"header"`
-	Stats            StatsInfo             `json:"stats"`
-	YSFLastTX        []TXEntry             `json:"ysfLastTx"`
-	DMRLastTX        []TXEntry             `json:"dmrLastTx"`
-	DMRActive24h     []DMRActive24h        `json:"dmrActive24h"`
-	YSFStations24h   []YSFStation24h       `json:"ysfStations24h"`
-	YSFConnectedList []YSFConnectedNow     `json:"ysfConnectedList"`
-	Combined24h      []CombinedActivity24h `json:"combined24h"`
+	Header                HeaderInfo            `json:"header"`
+	Stats                 StatsInfo             `json:"stats"`
+	YSFLastTX             []TXEntry             `json:"ysfLastTx"`
+	DMRLastTX             []TXEntry             `json:"dmrLastTx"`
+	DMRActive24h          []DMRActive24h        `json:"dmrActive24h"`
+	YSFStations24h        []YSFStation24h       `json:"ysfStations24h"`
+	YSFConnectedList      []YSFConnectedNow     `json:"ysfConnectedList"`
+	Combined24h           []CombinedActivity24h `json:"combined24h"`
+	EchoLinkConnectedList []EchoLinkStation     `json:"echolinkConnectedList"`
+	EchoLinkUptime        string                `json:"echolinkUptime"`
+	YSFAvailable          bool                  `json:"ysfAvailable"`
+	DMRAvailable          bool                  `json:"dmrAvailable"`
+	EchoLinkAvailable     bool                  `json:"echolinkAvailable"`
+	Warnings              []string              `json:"warnings"`
 }
 
 // --- Regex reales para YSFReflector y MMDVM_Bridge ---
@@ -225,16 +240,26 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	var dmrTX []TXEntry
 	var combined []CombinedActivity24h
 	var pendingYSFTx *activeYSFTx
+	ysfAvailable, dmrAvailable := true, true
+	warnings := make([]string, 0)
 
 	// 1. Parsear YSFReflector
 	ysfFiles, err := candidateLogFiles(cfg.YSFLogDir, "YSFReflector", now)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs YSF").SetInternal(err)
+		ysfAvailable = false
+		warnings = append(warnings, "No se pueden leer los logs YSF")
+		c.Logger().Errorf("No se pueden leer los logs YSF: %v", err)
+	} else if len(ysfFiles) == 0 {
+		ysfAvailable = false
+		warnings = append(warnings, "No se encontraron logs YSF recientes")
 	}
 	for _, path := range ysfFiles {
 		f, err := os.Open(path)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs YSF").SetInternal(err)
+			ysfAvailable = false
+			warnings = append(warnings, "No se pueden leer todos los logs YSF")
+			c.Logger().Errorf("No se puede abrir el log YSF: %v", err)
+			continue
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -316,14 +341,21 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		scanErr := scanner.Err()
 		_ = f.Close()
 		if scanErr != nil {
-			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs YSF").SetInternal(scanErr)
+			ysfAvailable = false
+			warnings = append(warnings, "No se pueden leer todos los logs YSF")
+			c.Logger().Errorf("No se puede leer el log YSF: %v", scanErr)
 		}
 	}
 
 	// 2. Parsear MMDVM_Bridge (soporta nombres MMDVM_Bridge-YYYY-MM-DD.log o mmdvm_bridge-YYYY-MM-DD.log)
 	dmrFiles, err := candidateLogFilesAnyPrefix(cfg.DMRLogDir, []string{"MMDVM_Bridge", "mmdvm_bridge"}, now)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs DMR").SetInternal(err)
+		dmrAvailable = false
+		warnings = append(warnings, "No se pueden leer los logs DMR")
+		c.Logger().Errorf("No se pueden leer los logs DMR: %v", err)
+	} else if len(dmrFiles) == 0 {
+		dmrAvailable = false
+		warnings = append(warnings, "No se encontraron logs DMR recientes")
 	}
 	var lastYSFCall string
 	var lastYSFTime time.Time
@@ -332,7 +364,10 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	for _, path := range dmrFiles {
 		f, err := os.Open(path)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs DMR").SetInternal(err)
+			dmrAvailable = false
+			warnings = append(warnings, "No se pueden leer todos los logs DMR")
+			c.Logger().Errorf("No se puede abrir el log DMR: %v", err)
+			continue
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
@@ -459,7 +494,9 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		scanErr := scanner.Err()
 		_ = f.Close()
 		if scanErr != nil {
-			return echo.NewHTTPError(http.StatusServiceUnavailable, "No se pueden leer los logs DMR").SetInternal(scanErr)
+			dmrAvailable = false
+			warnings = append(warnings, "No se pueden leer todos los logs DMR")
+			c.Logger().Errorf("No se puede leer el log DMR: %v", scanErr)
 		}
 	}
 
@@ -509,13 +546,20 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	})
 
 	bridgeStatus := "Inactivo"
-	if bridgeOnline {
+	if !ysfAvailable {
+		bridgeStatus = "No disponible"
+	} else if bridgeOnline {
 		bridgeStatus = "En línea"
 	}
 
 	lastUpdateStr := "—"
 	if !currentSnapshotTime.IsZero() {
 		lastUpdateStr = currentSnapshotTime.Format("03:04 PM")
+	}
+
+	echoLinkConnected, echoLinkUptime, echoLinkAvailable, echoLinkErr := readEchoLinkStatus(c.Request().Context(), cfg.EchoLinkCommand)
+	if echoLinkErr != nil {
+		c.Logger().Errorf("No se puede consultar EchoLink: %v", echoLinkErr)
 	}
 
 	resp := DashboardStatusResponse{
@@ -533,12 +577,18 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			DMRTx24h:        len(dmrTX),
 			Stations24h:     len(uniqueCallsigns),
 		},
-		YSFLastTX:        limitTX(ysfTX, 25),
-		DMRLastTX:        limitTX(dmrTX, 25),
-		DMRActive24h:     dmrActiveList,
-		YSFStations24h:   ysfStations,
-		YSFConnectedList: currentSnapshotList,
-		Combined24h:      limitCombined(combined, 50),
+		YSFLastTX:             limitUniqueTX(ysfTX, 25),
+		DMRLastTX:             limitUniqueTX(dmrTX, 25),
+		DMRActive24h:          dmrActiveList,
+		YSFStations24h:        ysfStations,
+		YSFConnectedList:      currentSnapshotList,
+		Combined24h:           limitCombined(combined, 50),
+		EchoLinkConnectedList: echoLinkConnected,
+		EchoLinkUptime:        echoLinkUptime,
+		YSFAvailable:          ysfAvailable,
+		DMRAvailable:          dmrAvailable,
+		EchoLinkAvailable:     echoLinkAvailable,
+		Warnings:              warnings,
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -590,6 +640,73 @@ func ensureYSFStation(m map[string]*YSFStation24h, call string) *YSFStation24h {
 		m[call] = st
 	}
 	return st
+}
+
+func readEchoLinkStatus(parent context.Context, command string) ([]EchoLinkStation, string, bool, error) {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		command = "tlbcmd"
+	}
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return nil, "", false, errors.New("comando EchoLink vacío")
+	}
+
+	usersArgs := append([]string{}, parts[1:]...)
+	usersArgs = append(usersArgs, "users")
+	usersCtx, usersCancel := context.WithTimeout(parent, time.Second)
+	usersOutput, usersErr := exec.CommandContext(usersCtx, parts[0], usersArgs...).CombinedOutput()
+	usersCancel()
+	if usersErr != nil {
+		return nil, "", false, fmt.Errorf("consultar usuarios: %w", usersErr)
+	}
+
+	uptimeArgs := append([]string{}, parts[1:]...)
+	uptimeArgs = append(uptimeArgs, "uptime")
+	uptimeCtx, uptimeCancel := context.WithTimeout(parent, time.Second)
+	uptimeOutput, uptimeErr := exec.CommandContext(uptimeCtx, parts[0], uptimeArgs...).CombinedOutput()
+	uptimeCancel()
+	uptime := ""
+	if uptimeErr == nil {
+		uptime = strings.TrimSpace(strings.ReplaceAll(string(uptimeOutput), "Uptime", "Server Uptime"))
+	} else {
+		return parseEchoLinkUsers(string(usersOutput)), "", true, fmt.Errorf("consultar uptime: %w", uptimeErr)
+	}
+
+	return parseEchoLinkUsers(string(usersOutput)), uptime, true, nil
+}
+
+func parseEchoLinkUsers(output string) []EchoLinkStation {
+	stations := make([]EchoLinkStation, 0)
+	seen := make(map[string]struct{})
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) < 2 {
+			continue
+		}
+		number := fields[0]
+		user := fields[1]
+		if strings.EqualFold(number, "#") || strings.EqualFold(number, "Connected") ||
+			strings.EqualFold(user, "User") || strings.EqualFold(user, "Nodes") {
+			continue
+		}
+		if _, err := strconv.Atoi(number); err != nil {
+			continue
+		}
+		attribute := ""
+		if len(fields) >= 3 {
+			attribute = fields[2]
+		}
+		key := number + ":" + user
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		stations = append(stations, EchoLinkStation{
+			Number: number, User: user, Attribute: attribute,
+		})
+	}
+	return stations
 }
 
 func candidateLogFiles(dir, prefix string, now time.Time) ([]string, error) {
@@ -663,6 +780,26 @@ func limitTX(s []TXEntry, max int) []TXEntry {
 		return s
 	}
 	return s[:max]
+}
+
+func limitUniqueTX(s []TXEntry, max int) []TXEntry {
+	result := make([]TXEntry, 0, max)
+	seen := make(map[string]struct{})
+	for _, entry := range s {
+		key := strings.ToUpper(strings.TrimSpace(entry.Callsign))
+		if key == "" {
+			continue
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, entry)
+		if len(result) == max {
+			break
+		}
+	}
+	return result
 }
 
 func limitCombined(s []CombinedActivity24h, max int) []CombinedActivity24h {

@@ -1,0 +1,93 @@
+<main>
+  <a routerLink="/">Volver al dashboard</a>
+  <h1>Administrar sitios</h1>
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (notice()) { <p role="status">{{ notice() }}</p> }
+
+  @if (!authenticated() && setupRequired()) {
+    <p>Crea la contraseña del administrador para este sitio. Se requiere HTTPS.</p>
+    <p>Hazlo inmediatamente después de instalar: la primera persona en completar este formulario será el administrador.</p>
+    <form [formGroup]="setupForm" (ngSubmit)="setup()">
+      <label for="setup-password">Contraseña nueva (mínimo 8 caracteres)
+        <input id="setup-password" [type]="setupPasswordVisible() ? 'text' : 'password'" formControlName="password" autocomplete="new-password" />
+      </label>
+      <label for="setup-confirm">Confirmar contraseña
+        <input id="setup-confirm" [type]="setupPasswordVisible() ? 'text' : 'password'" formControlName="confirm" autocomplete="new-password" />
+      </label>
+      <label class="check"><input type="checkbox" [checked]="setupPasswordVisible()" (change)="setupPasswordVisible.set(!setupPasswordVisible())" /> Mostrar contraseña</label>
+      @if (setupForm.controls.confirm.touched && setupForm.value.confirm !== setupForm.value.password) {
+        <p class="error">Las contraseñas no coinciden.</p>
+      }
+      <button type="submit" [disabled]="busy() || setupForm.invalid || setupForm.value.password !== setupForm.value.confirm">
+        Crear administrador
+      </button>
+    </form>
+  } @else if (!authenticated()) {
+    <p>La administración requiere HTTPS y la contraseña de este sitio.</p>
+    <form [formGroup]="loginForm" (ngSubmit)="login()">
+      <label for="password">Contraseña de administrador
+        <input id="password" [type]="loginPasswordVisible() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" />
+      </label>
+      <label class="check"><input type="checkbox" [checked]="loginPasswordVisible()" (change)="loginPasswordVisible.set(!loginPasswordVisible())" /> Mostrar contraseña</label>
+      <button type="submit" [disabled]="busy() || loginForm.invalid">Iniciar sesión</button>
+    </form>
+  } @else {
+    <button type="button" (click)="logout()" [disabled]="busy()">Cerrar sesión</button>
+    <h2>Sitios configurados</h2>
+    @for (site of sites(); track site.id) {
+      <div class="site">
+        <strong>{{ site.name }}</strong>
+        <span>{{ site.url }}</span>
+        <span>{{ site.visible ? 'Visible para visitantes' : 'Solo administradores' }}</span>
+        <div class="actions">
+          <button type="button" (click)="edit(site)" [disabled]="busy()">Editar</button>
+          <button type="button" (click)="deleting.set(site.id)" [disabled]="busy()">Eliminar</button>
+        </div>
+        @if (deleting() === site.id) {
+          <p>¿Eliminar este perfil?</p>
+          <div class="actions">
+            <button type="button" (click)="delete(site.id)" [disabled]="busy()">Confirmar eliminación</button>
+            <button type="button" (click)="deleting.set(null)" [disabled]="busy()">Cancelar</button>
+          </div>
+        }
+      </div>
+    } @empty {
+      <p>No hay sitios configurados.</p>
+    }
+    <h2>{{ editing() ? 'Editar sitio' : 'Agregar sitio' }}</h2>
+    <form [formGroup]="siteForm" (ngSubmit)="save()">
+      <label for="site-name">Nombre
+        <input id="site-name" formControlName="name" maxlength="100" />
+      </label>
+      <label for="site-url">URL HTTPS del dashboard remoto
+        <input id="site-url" type="url" formControlName="url" placeholder="https://ejemplo.org/ameriboard" />
+      </label>
+      <label for="site-password">Contraseña de administrador del sitio remoto
+        <input id="site-password" [type]="sitePasswordVisible() ? 'text' : 'password'" formControlName="password" autocomplete="new-password" />
+      </label>
+      <label class="check"><input type="checkbox" [checked]="sitePasswordVisible()" (change)="sitePasswordVisible.set(!sitePasswordVisible())" /> Mostrar contraseña</label>
+      @if (editing()) { <small>Deja la contraseña vacía para conservar la actual.</small> }
+      <label class="check" for="site-visible">
+        <input id="site-visible" type="checkbox" formControlName="visible" />
+        Visible para visitantes
+      </label>
+      <fieldset>
+        <legend>Cabecera personalizada</legend>
+        <p>Deja un campo vacío para utilizar el valor enviado por el sitio remoto.</p>
+        <label for="site-title">Título
+          <input id="site-title" formControlName="title" maxlength="200" />
+        </label>
+        <label for="site-subtitle">Subtítulo
+          <input id="site-subtitle" formControlName="subtitle" maxlength="500" />
+        </label>
+        <label for="site-badge">Etiqueta
+          <input id="site-badge" formControlName="badge" maxlength="100" />
+        </label>
+      </fieldset>
+      <div class="actions">
+        <button type="submit" [disabled]="busy() || siteForm.invalid || (!editing() && !siteForm.value.password)">Guardar</button>
+        @if (editing()) { <button type="button" (click)="cancel()" [disabled]="busy()">Cancelar</button> }
+      </div>
+    </form>
+  }
+</main>

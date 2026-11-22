@@ -16,6 +16,7 @@ import (
 
 	"ameriboard/internal/config"
 	"ameriboard/internal/controllers"
+	"ameriboard/internal/profiles"
 	"ameriboard/internal/routes"
 	"ameriboard/internal/web"
 
@@ -37,7 +38,18 @@ func run() error {
 	legacyEnv := flag.String("legacy-env", "", "archivo de entorno anterior")
 	proxySocket := flag.String("proxy-socket", "", "socket Unix para el proxy")
 	checkProxy := flag.Bool("check-proxy", false, "validar la configuración para el proxy instalado")
+	stateDir := flag.String("state-dir", "/var/lib/ameriboard", "directorio privado de perfiles y credenciales")
+	generateCredential := flag.String("generate-credential", "", "generar credencial admin o site")
 	flag.Parse()
+	store := profiles.NewStore(*stateDir)
+	if *generateCredential != "" {
+		secret, err := store.GenerateCredential(*generateCredential)
+		if err != nil {
+			return fmt.Errorf("generar credencial: %w", err)
+		}
+		fmt.Println(secret)
+		return nil
+	}
 	if *initPath != "" {
 		cfg, err := config.Initial(*initPath, *legacyEnv)
 		if err != nil {
@@ -69,8 +81,9 @@ func run() error {
 		Title: cfg.Title, Subtitle: cfg.Subtitle, Badge: cfg.Badge,
 		YSFReflector: cfg.YSFReflector, TGIFTalkgroup: cfg.TGIFTalkgroup,
 		BridgeCall: cfg.BridgeCall, YSFLogDir: cfg.YSFLogDir, DMRLogDir: cfg.DMRLogDir,
+		EchoLinkCommand: cfg.EchoLinkCommand,
 	})
-	e := newServer(basePath, frontend, reflector)
+	e := newServer(basePath, frontend, reflector, profiles.NewHandler(store))
 	tcp, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("escuchar en %s: %w", cfg.ListenAddr, err)
@@ -131,13 +144,13 @@ func notifyReady() error {
 	return nil
 }
 
-func newServer(basePath string, frontend http.Handler, reflector *controllers.ReflectorService) *echo.Echo {
+func newServer(basePath string, frontend http.Handler, reflector *controllers.ReflectorService, sites *profiles.Handler) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	routes.Register(e, basePath, frontend, reflector)
+	routes.Register(e, basePath, frontend, reflector, sites)
 	return e
 }
 

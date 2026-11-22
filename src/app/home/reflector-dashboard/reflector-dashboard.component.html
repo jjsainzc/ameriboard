@@ -1,3 +1,15 @@
+<div class="site-selector">
+  <label for="site">Sitio</label>
+  <select id="site" (change)="selectProfile($event)">
+    <option value="">Este sitio</option>
+    @for (site of profiles(); track site.id) {
+      <option [value]="site.id">{{ site.name }}{{ site.visible ? '' : ' (privado)' }}</option>
+    }
+  </select>
+  <a routerLink="/admin">Administrar sitios</a>
+</div>
+@if (profilesError()) { <p role="alert">{{ profilesError() }}</p> }
+
 @if (error()) {
   <p role="alert">{{ error() }}</p>
 } @else if (loading()) {
@@ -6,6 +18,9 @@
 
 @if (data(); as d) {
   <div class="dashboard-wrapper">
+    @for (warning of d.warnings; track $index) {
+      <p role="alert">{{ warning }}</p>
+    }
     <!-- Cabecera -->
     <header class="dash-header">
       <div>
@@ -22,19 +37,19 @@
     <section class="kpi-grid">
       <div class="kpi-card border-cyan">
         <span class="kpi-label">CONECTADOS YSF AHORA</span>
-        <span class="kpi-value">{{ d.stats.ysfConnectedCount }}</span>
+        <span class="kpi-value">{{ d.ysfAvailable ? d.stats.ysfConnectedCount : '—' }}</span>
       </div>
       <div class="kpi-card border-blue">
         <span class="kpi-label">TRANSMISIONES YSF (24H)</span>
-        <span class="kpi-value">{{ d.stats.ysfTx24h }}</span>
+        <span class="kpi-value">{{ d.ysfAvailable ? d.stats.ysfTx24h : '—' }}</span>
       </div>
       <div class="kpi-card border-emerald">
         <span class="kpi-label">TRANSMISIONES DMR (24H)</span>
-        <span class="kpi-value">{{ d.stats.dmrTx24h }}</span>
+        <span class="kpi-value">{{ d.dmrAvailable ? d.stats.dmrTx24h : '—' }}</span>
       </div>
       <div class="kpi-card border-purple">
         <span class="kpi-label">ESTACIONES (24H)</span>
-        <span class="kpi-value">{{ d.stats.stations24h }}</span>
+        <span class="kpi-value">{{ d.ysfAvailable && d.dmrAvailable ? d.stats.stations24h : '—' }}</span>
       </div>
     </section>
 
@@ -44,7 +59,7 @@
       <div class="panel-card">
         <div class="panel-header">
           <h2>Estación o gateway conectado</h2>
-          <span class="count-pill">{{ d.ysfConnected.length }}</span>
+          <span class="count-pill">{{ d.ysfAvailable ? d.ysfConnected.length : '—' }}</span>
         </div>
         <div class="table-responsive">
           <table>
@@ -66,7 +81,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="4" class="empty-msg">No hay estaciones conectadas</td>
+                  <td colspan="4" class="empty-msg">{{ d.ysfAvailable ? 'No hay estaciones conectadas' : 'Datos YSF no disponibles' }}</td>
                 </tr>
               }
             </tbody>
@@ -104,7 +119,7 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6" class="empty-msg">Sin actividad reciente en YSF</td>
+                  <td colspan="6" class="empty-msg">{{ d.ysfAvailable ? 'Sin actividad reciente en YSF' : 'Datos YSF no disponibles' }}</td>
                 </tr>
               }
             </tbody>
@@ -112,6 +127,57 @@
         </div>
       </div>
     </section>
+
+    @if (d.echolinkAvailable) {
+    <section class="panel-card full-width" aria-labelledby="echolink-title">
+      <div class="panel-header">
+        <h2 id="echolink-title">EchoLink conectado</h2>
+        <div class="echolink-actions">
+          <span class="count-pill">{{ d.echolinkConnected.length }}</span>
+          <button type="button" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda de atributos</button>
+        </div>
+      </div>
+      @if (d.echolinkUptime !== '—') {
+        <div class="echolink-uptime mono">{{ d.echolinkUptime }}</div>
+      }
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Usuario</th>
+              <th>Atributo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (station of d.echolinkConnected; track station.number + station.user) {
+              <tr>
+                <td class="mono">{{ station.number }}</td>
+                <td class="callsign">{{ station.user }}</td>
+                <td class="mono">{{ station.attribute || '—' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="3" class="empty-msg">No hay nodos EchoLink conectados</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <dialog #legendDialog class="echolink-legend" aria-labelledby="echolink-legend-title">
+      <h2 id="echolink-legend-title">Atributos de EchoLink</h2>
+      <table>
+        <thead><tr><th scope="col">Atributo</th><th scope="col">Significado</th></tr></thead>
+        <tbody>
+          @for (attribute of echolinkAttributes; track attribute.code) {
+            <tr><th scope="row">{{ attribute.code }}</th><td>{{ attribute.meaning }}</td></tr>
+          }
+        </tbody>
+      </table>
+      <button type="button" (click)="legendDialog.close()">Cerrar</button>
+    </dialog>
+    }
 
     <!-- Fila Inferior: Actividad DMR / TGIF -->
     <section class="panel-card full-width">
@@ -142,7 +208,7 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="empty-msg">Sin tráfico DMR registrado</td>
+                <td colspan="6" class="empty-msg">{{ d.dmrAvailable ? 'Sin tráfico DMR registrado' : 'Datos DMR no disponibles' }}</td>
               </tr>
             }
           </tbody>

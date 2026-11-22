@@ -27,5 +27,35 @@ archives:
     files:
       - README.md
 
+nfpms:
+  - id: ameriboard-deb
+    package_name: ameriboard
+    formats: [deb]
+    maintainer: "Amerimon <support@amerinet-hamradio.net>"
+    description: Ameriboard reflector dashboard with embedded Angular frontend.
+    license: Proprietary
+    section: web
+    priority: optional
+    contents:
+      - src: packaging/ameriboard.service
+        dst: /etc/systemd/system/ameriboard.service
+      - src: packaging/ameriboard.env
+        dst: /etc/ameriboard/ameriboard.env
+        type: config|noreplace
+        file_info:
+          mode: 0600
+      - src: packaging/apache-ameriboard.conf.example
+        dst: /usr/share/ameriboard/apache-ameriboard.conf.example
+      - src: packaging/nginx-ameriboard.conf.example
+        dst: /usr/share/ameriboard/nginx-ameriboard.conf.example
+      - src: packaging/configure-proxy.sh
+        dst: /usr/lib/ameriboard/configure-proxy.sh
+        file_info:
+          mode: 0755
+    scripts:
+      postinstall: packaging/postinstall.sh
+      preremove: packaging/preremove.sh
+      postremove: packaging/postremove.sh
+
 checksum:
   name_template: checksums.txt

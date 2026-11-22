@@ -30,12 +30,18 @@ describe('ReflectorService', () => {
       stats: { ysfConnectedNow: 1, ysfTx24h: 2, dmrTx24h: 3, stations24h: 4 },
       ysfConnectedList: [{ callsign: 'TEST1', ip: '192.0.2.1', type: 'Gateway', since: '10:00' }],
       ysfLastTx: [{ callsign: 'TEST1', duration: '5s', ago: 'hace 1m' }],
-      dmrLastTx: null
+      dmrLastTx: [{ callsign: 'DMR1', duration: '10s', ago: 'hace 2m' }, { callsign: 'DMR1', duration: '8s', ago: 'hace 3m' }],
+      echolinkConnectedList: [{ number: '1', user: 'W2LRC-R', attribute: 'T' }],
+      echolinkUptime: 'Server Uptime: 1 day'
     });
     expect(service.data()?.stats).toEqual({ ysfConnectedCount: 1, ysfTx24h: 2, dmrTx24h: 3, stations24h: 4 });
     expect(service.data()?.ysfConnected[0]).toEqual({ callsign: 'TEST1', ip: '192.0.2.1', gateway: 'Gateway', since: '10:00' });
     expect(service.data()?.ysfLastHeard[0].loss).toBe('—');
-    expect(service.data()?.dmrLastHeard).toEqual([]);
+    expect(service.data()?.dmrLastHeard).toEqual([
+      { time: 'hace 2m', callsign: 'DMR1', dmrId: '—', talkgroup: '—', source: '—', duration: '10s' }
+    ]);
+    expect(service.data()?.echolinkConnected).toEqual([{ number: '1', user: 'W2LRC-R', attribute: 'T' }]);
+    expect(service.data()?.echolinkUptime).toBe('Server Uptime: 1 day');
     expect(service.error()).toBeNull();
   });
 

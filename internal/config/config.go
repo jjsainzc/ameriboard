@@ -15,16 +15,17 @@ import (
 )
 
 type Config struct {
-	ListenAddr    string `yaml:"listen_addr"`
-	BasePath      string `yaml:"base_path"`
-	Title         string `yaml:"title"`
-	Subtitle      string `yaml:"subtitle"`
-	Badge         string `yaml:"badge"`
-	YSFReflector  string `yaml:"ysf_reflector"`
-	TGIFTalkgroup string `yaml:"tgif_talkgroup"`
-	BridgeCall    string `yaml:"bridge_callsign"`
-	YSFLogDir     string `yaml:"ysf_log_dir"`
-	DMRLogDir     string `yaml:"dmr_log_dir"`
+	ListenAddr      string `yaml:"listen_addr"`
+	BasePath        string `yaml:"base_path"`
+	Title           string `yaml:"title"`
+	Subtitle        string `yaml:"subtitle"`
+	Badge           string `yaml:"badge"`
+	YSFReflector    string `yaml:"ysf_reflector"`
+	TGIFTalkgroup   string `yaml:"tgif_talkgroup"`
+	BridgeCall      string `yaml:"bridge_callsign"`
+	YSFLogDir       string `yaml:"ysf_log_dir"`
+	DMRLogDir       string `yaml:"dmr_log_dir"`
+	EchoLinkCommand string `yaml:"echolink_command"`
 }
 
 func Defaults(getenv func(string) string) Config {
@@ -35,16 +36,17 @@ func Defaults(getenv func(string) string) Config {
 		return fallback
 	}
 	return Config{
-		ListenAddr:    get("LISTEN_ADDR", "127.0.0.1:8087"),
-		BasePath:      get("BASE_PATH", "/ameriboard"),
-		Title:         get("DASHBOARD_TITLE", "CONFERENCIA AMERINET"),
-		Subtitle:      get("DASHBOARD_SUBTITLE", "Reflector YSF {ysf_reflector} y TGIF DMR TG {tgif_tg}"),
-		Badge:         get("DASHBOARD_BADGE", "Reflector + TGIF DMR"),
-		YSFReflector:  get("YSF_REFLECTOR_ID", "74001"),
-		TGIFTalkgroup: get("TGIF_TG", "7401"),
-		BridgeCall:    get("BRIDGE_CALLSIGN", "HC1LNM"),
-		YSFLogDir:     get("YSF_LOG_DIR", "/var/log/YSFReflector"),
-		DMRLogDir:     get("DMR_LOG_DIR", "/var/log/mmdvm"),
+		ListenAddr:      get("LISTEN_ADDR", "127.0.0.1:8087"),
+		BasePath:        get("BASE_PATH", "/ameriboard"),
+		Title:           get("DASHBOARD_TITLE", "CONFERENCIA AMERINET"),
+		Subtitle:        get("DASHBOARD_SUBTITLE", "Reflector YSF {ysf_reflector} y TGIF DMR TG {tgif_tg}"),
+		Badge:           get("DASHBOARD_BADGE", "Reflector + TGIF DMR"),
+		YSFReflector:    get("YSF_REFLECTOR_ID", "74001"),
+		TGIFTalkgroup:   get("TGIF_TG", "7401"),
+		BridgeCall:      get("BRIDGE_CALLSIGN", "HC1LNM"),
+		YSFLogDir:       get("YSF_LOG_DIR", "/var/log/YSFReflector"),
+		DMRLogDir:       get("DMR_LOG_DIR", "/var/log/mmdvm"),
+		EchoLinkCommand: get("ECHOLINK_COMMAND", "tlbcmd"),
 	}
 }
 

@@ -1,9 +1,9 @@
 import { Injectable, inject, signal, DestroyRef } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
-import { Observable, interval, switchMap, startWith, catchError, of, tap, map, shareReplay } from 'rxjs';
+import { BehaviorSubject, Observable, interval, switchMap, startWith, catchError, of, tap, map, shareReplay } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity } from '../models/reflector.model';
+import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity, EchoLinkStation } from '../models/reflector.model';
 
 /** Forma devuelta por DashboardStatusResponse. */
 interface BackendStatusRaw {
@@ -30,6 +30,24 @@ interface BackendStatusRaw {
     duration: string;
     detail: string;
   }> | null;
+  echolinkConnectedList?: EchoLinkStation[] | null;
+  echolinkUptime?: string | null;
+  ysfAvailable?: boolean;
+  dmrAvailable?: boolean;
+  echolinkAvailable?: boolean;
+  warnings?: string[] | null;
+}
+
+export interface SiteProfile {
+  id: string;
+  name: string;
+  visible: boolean;
+  url?: string;
+  header?: {
+    title: string;
+    subtitle: string;
+    badge: string;
+  } | null;
 }
 
 @Injectable({
@@ -41,6 +59,7 @@ export class ReflectorService {
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly statusUrl = this.resolveStatusUrl();
+  private readonly selectedProfile = new BehaviorSubject<string>('');
 
   readonly data = signal<ReflectorDashboardData | null>(null);
   readonly error = signal<string | null>(null);
@@ -57,8 +76,9 @@ export class ReflectorService {
   }
 
   /** Petición única normalizada */
-  fetchStatusOnce(): Observable<ReflectorDashboardData | null> {
-    return this.http.get<BackendStatusRaw>(this.statusUrl).pipe(
+  fetchStatusOnce(profileId = ''): Observable<ReflectorDashboardData | null> {
+    const url = profileId ? this.statusUrl.replace('/reflector-status', `/profiles/${encodeURIComponent(profileId)}/status`) : this.statusUrl;
+    return this.http.get<BackendStatusRaw>(url).pipe(
       map((raw) => {
         if (!raw?.header || !raw.stats) {
           throw new Error('Respuesta de telemetría incompleta');
@@ -71,6 +91,7 @@ export class ReflectorService {
         this.loading.set(false);
       }),
       catchError(() => {
+        this.data.set(null);
         this.error.set('Sin conexión con el servidor de telemetría');
         this.loading.set(false);
         return of(null);
@@ -83,12 +104,25 @@ export class ReflectorService {
    * actualiza los signals internos del servicio.
    */
   pollStatus(periodMs = 5000): Observable<ReflectorDashboardData | null> {
-    return interval(periodMs).pipe(
-      startWith(0),
-      switchMap(() => this.fetchStatusOnce()),
+    return this.selectedProfile.pipe(
+      switchMap(profileId => interval(periodMs).pipe(
+        startWith(0),
+        switchMap(() => this.fetchStatusOnce(profileId))
+      )),
       shareReplay({ bufferSize: 1, refCount: true }),
       takeUntilDestroyed(this.destroyRef)
     );
+  }
+
+  selectProfile(id: string): void {
+    this.data.set(null);
+    this.error.set(null);
+    this.loading.set(true);
+    this.selectedProfile.next(id);
+  }
+
+  getProfiles(): Observable<SiteProfile[]> {
+    return this.http.get<SiteProfile[]>(this.statusUrl.replace('/reflector-status', '/profiles'));
   }
 
   private mapBackendToModel(raw: BackendStatusRaw): ReflectorDashboardData {
@@ -99,7 +133,7 @@ export class ReflectorService {
       since: item.since
     }));
 
-    const ysfLastHeard: YsfActivity[] = (raw.ysfLastTx ?? []).map((tx) => ({
+    const ysfLastHeard: YsfActivity[] = this.uniqueLastHeard(raw.ysfLastTx ?? []).map((tx) => ({
       time: tx.ago,
       callsign: tx.callsign,
       target: '—',
@@ -108,7 +142,7 @@ export class ReflectorService {
       loss: '—'
     }));
 
-    const dmrLastHeard: DmrActivity[] = (raw.dmrLastTx ?? []).map((tx) => ({
+    const dmrLastHeard: DmrActivity[] = this.uniqueLastHeard(raw.dmrLastTx ?? []).map((tx) => ({
       time: tx.ago,
       callsign: tx.callsign,
       dmrId: '—',
@@ -117,7 +151,17 @@ export class ReflectorService {
       duration: tx.duration
     }));
 
+    const echolinkConnected: EchoLinkStation[] = (raw.echolinkConnectedList ?? []).map((station) => ({
+      number: station.number,
+      user: station.user,
+      attribute: station.attribute
+    }));
+
     return {
+      ysfAvailable: raw.ysfAvailable !== false,
+      dmrAvailable: raw.dmrAvailable !== false,
+      echolinkAvailable: raw.echolinkAvailable !== false,
+      warnings: raw.warnings ?? [],
       header: raw.header,
       stats: {
         ysfConnectedCount: raw.stats.ysfConnectedNow,
@@ -127,7 +171,21 @@ export class ReflectorService {
       },
       ysfConnected,
       ysfLastHeard,
-      dmrLastHeard
+      dmrLastHeard,
+      echolinkConnected,
+      echolinkUptime: raw.echolinkUptime?.trim() || '—'
     };
+  }
+
+  private uniqueLastHeard<T extends { callsign: string }>(entries: T[]): T[] {
+    const seen = new Set<string>();
+    return entries.filter((entry) => {
+      const callsign = entry.callsign.trim().toUpperCase();
+      if (!callsign || seen.has(callsign)) {
+        return false;
+      }
+      seen.add(callsign);
+      return true;
+    });
   }
 }

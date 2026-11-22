@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"ameriboard/internal/controllers"
+	"ameriboard/internal/profiles"
 )
 
 func TestNormalizeBasePath(t *testing.T) {
@@ -59,7 +60,7 @@ func TestServerRoutes(t *testing.T) {
 			_, _ = w.Write([]byte("frontend:" + r.URL.Path))
 		})
 		reflector := controllers.NewReflectorService(controllers.ReflectorConfig{Title: "Test", YSFLogDir: dir, DMRLogDir: dir})
-		server := newServer(base, frontend, reflector)
+		server := newServer(base, frontend, reflector, profiles.NewHandler(profiles.NewStore(t.TempDir())))
 		for _, tc := range []struct {
 			path string
 			code int
@@ -89,12 +90,30 @@ func TestServerRoutes(t *testing.T) {
 }
 
 func TestReflectorRouteReportsMissingLogDirectory(t *testing.T) {
-	service := controllers.NewReflectorService(controllers.ReflectorConfig{YSFLogDir: filepath.Join(t.TempDir(), "missing")})
-	server := newServer("/ameriboard", http.NotFoundHandler(), service)
+	dmrDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dmrDir, "MMDVM_Bridge-"+time.Now().Format("2006-01-02")+".log"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	service := controllers.NewReflectorService(controllers.ReflectorConfig{
+		YSFLogDir: filepath.Join(t.TempDir(), "missing"), DMRLogDir: dmrDir, EchoLinkCommand: "/nonexistent/tlbcmd",
+	})
+	server := newServer("/ameriboard", http.NotFoundHandler(), service, profiles.NewHandler(profiles.NewStore(t.TempDir())))
 	response := httptest.NewRecorder()
 	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ameriboard/api/reflector-status", nil))
-	if response.Code != http.StatusServiceUnavailable {
-		t.Fatalf("expected 503, got %d: %s", response.Code, response.Body.String())
+	var data controllers.DashboardStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &data); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusOK || data.YSFAvailable || !data.DMRAvailable || len(data.Warnings) == 0 {
+		t.Fatalf("expected partial response, got %d: %s", response.Code, response.Body.String())
+	}
+	if data.EchoLinkAvailable {
+		t.Fatal("EchoLink should be unavailable")
+	}
+	for _, warning := range data.Warnings {
+		if strings.Contains(warning, "EchoLink") {
+			t.Fatalf("EchoLink should not add a dashboard warning: %q", warning)
+		}
 	}
 }
 
@@ -112,7 +131,7 @@ func TestReflectorRouteReadsLogs(t *testing.T) {
 		Title: "Live", Subtitle: "YSF {ysf_reflector}, TG {tgif_tg}", Badge: "Test",
 		YSFReflector: "42", TGIFTalkgroup: "77", YSFLogDir: dir, DMRLogDir: dir,
 	})
-	server := newServer("/ameriboard", http.NotFoundHandler(), service)
+	server := newServer("/ameriboard", http.NotFoundHandler(), service, profiles.NewHandler(profiles.NewStore(t.TempDir())))
 	response := httptest.NewRecorder()
 	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ameriboard/api/reflector-status", nil))
 

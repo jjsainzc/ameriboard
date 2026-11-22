@@ -23,7 +23,17 @@ export interface DmrActivity {
   duration: string;
 }
 
+export interface EchoLinkStation {
+  number: string;
+  user: string;
+  attribute: string;
+}
+
 export interface ReflectorDashboardData {
+  ysfAvailable: boolean;
+  dmrAvailable: boolean;
+  echolinkAvailable: boolean;
+  warnings: string[];
   header: {
     title: string;
     subtitle: string;
@@ -40,4 +50,6 @@ export interface ReflectorDashboardData {
   ysfConnected: YsfStation[];
   ysfLastHeard: YsfActivity[];
   dmrLastHeard: DmrActivity[];
+  echolinkConnected: EchoLinkStation[];
+  echolinkUptime: string;
 }
