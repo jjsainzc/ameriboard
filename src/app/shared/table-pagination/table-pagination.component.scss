@@ -12,7 +12,16 @@
 
 .pagination-top > label:first-child { flex: 1 1 8rem; }
 .pagination-top label:last-child { white-space: nowrap; }
-.pagination-top input { width: 100%; box-sizing: border-box; }
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: #7dd3fc;
+  font-weight: 600;
+}
+.filter-label svg { flex: none; }
+.pagination-top input { flex: 1; min-width: 0; box-sizing: border-box; }
 .pagination-nav { justify-content: center; }
 
 input, select, button {

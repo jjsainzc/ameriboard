@@ -113,6 +113,26 @@ describe('ReflectorDashboardComponent', () => {
     expect(Array.from(modeBadges, badge => Array.from(badge.classList).find(name => name !== 'mode-badge')))
       .toEqual(['mode-p25', 'mode-ysf', 'mode-ysf', 'mode-nxdn', 'mode-d-star', 'mode-dmr']);
     expect(fixture.nativeElement.querySelector('.kpi-card.border-emerald .kpi-value').textContent.trim()).toBe('6');
+    const dvSwitchPanel = fixture.nativeElement.querySelector('.dvswitch-table').closest('section') as HTMLElement;
+    expect(dvSwitchPanel.querySelector('nav')).toBeNull();
+    const search = dvSwitchPanel.querySelector('input[type="search"]') as HTMLInputElement;
+    expect(search.closest('label')?.textContent).toContain('Filtrar en actividad DVSwitch');
+    expect(search.closest('label')?.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+    search.value = 'ysf';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(dvSwitchPanel.querySelectorAll('.dvswitch-table tbody tr')).toHaveLength(2);
+    expect(dvSwitchPanel.textContent).toContain('TEST2');
+    expect(dvSwitchPanel.textContent).not.toContain('TEST1');
+    const service = TestBed.inject(ReflectorService);
+    service.data.set({ ...service.data()! });
+    fixture.detectChanges();
+    expect(search.value).toBe('ysf');
+    expect(dvSwitchPanel.querySelectorAll('.dvswitch-table tbody tr')).toHaveLength(2);
+    search.value = 'no existe';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(dvSwitchPanel.textContent).toContain('Sin resultados para la búsqueda');
     fixture.destroy();
     http.verify();
   });

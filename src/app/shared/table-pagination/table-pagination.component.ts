@@ -7,7 +7,7 @@ export class TablePagination<T extends object> {
   readonly count = computed(() => this.items().length);
   readonly pageSize = computed(() => this.count() > 25 ? this.selectedPageSize() : 25);
   readonly filtered = computed(() => {
-    const query = this.count() > 25 ? this.search().trim().toLocaleLowerCase() : '';
+    const query = this.alwaysSearch || this.count() > 25 ? this.search().trim().toLocaleLowerCase() : '';
     return query
       ? this.items().filter(item => this.searchValues(item).some(value => value.toLocaleLowerCase().includes(query)))
       : this.items();
@@ -22,10 +22,11 @@ export class TablePagination<T extends object> {
 
   constructor(
     private readonly items: Signal<T[]>,
-    private readonly searchValues: (item: T) => string[] = item => Object.values(item).map(String)
+    private readonly searchValues: (item: T) => string[] = item => Object.values(item).map(String),
+    readonly alwaysSearch = false
   ) {
     effect(() => {
-      if (this.count() <= 25 && this.search()) {
+      if (!this.alwaysSearch && this.count() <= 25 && this.search()) {
         this.search.set('');
       }
       if (this.page() > this.totalPages()) {
@@ -57,6 +58,7 @@ export class TablePagination<T extends object> {
 }
 
 interface PaginationControls {
+  alwaysSearch: boolean;
   count: Signal<number>;
   filteredCount: Signal<number>;
   search: Signal<string>;

@@ -27,7 +27,7 @@ export class ReflectorDashboardComponent implements OnInit {
     station.callsign, station.duration, station.disconnectedAt,
     new DatePipe('en-US').transform(station.disconnectedAt, 'dd/MM/yyyy HH:mm:ss') ?? ''
   ]);
-  readonly dvSwitchPages = new TablePagination(computed(() => this.data()?.dvSwitchLastHeard ?? []));
+  readonly dvSwitchPages = new TablePagination(computed(() => this.data()?.dvSwitchLastHeard ?? []), undefined, true);
   readonly echolinkAttributes = [
     { code: 'A', meaning: 'Sesión iniciada como administrador.' },
     { code: 'a', meaning: 'Códec ADPCM.' },

@@ -7,7 +7,9 @@
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
 
-Maneja tres logs fundamentales mas populares, YSF, Echolink (instalado en linux con TLB) y DVSwitch Server, sección MMDVM_BRIDGE, detecta puentes actl criterio de modalidades cuyos rxPort y txPort contienen los mismos puertos invertidos.
+Una práctica muy recoemndada es poner en un mismo server estos tres softwares de modo que se pueda optimizar el funcionamiento de los mismos, la opción de hacer puentes en DVSwitch para las diferentes modalidades consistes en crear directorios de MMDVM_BRIDGE con sufijos que los identifiquen y configurar los puentes de las stanzas deseadas invirtiendo los puertos tx y rx. 
+
+Maneja tres logs fundamentales mas populares, YSF, Echolink (instalado en linux con TLB) y DVSwitch Server, sección MMDVM_BRIDGE, detecta puentes entre de modalidades con el criterio explicado anteriormente.
 
 ## Instalación
 
@@ -94,7 +96,8 @@ La fecha y hora DVSwitch se muestran en formato día/mes/año y en la zona
 horaria del servidor que genera los datos.
 Las tablas de conexiones y actividad muestran hasta 25 registros por página.
 Cuando hay más de 25 registros se habilitan la búsqueda y la navegación; se
-puede elegir entre 5, 10 y 25 registros por página. La actividad YSF y DVSwitch
+puede elegir entre 5, 10 y 25 registros por página. La búsqueda de actividad
+DVSwitch está disponible también con menos registros. La actividad YSF y DVSwitch
 comprende los registros disponibles de las últimas 24 horas; YSF conserva la
 transmisión más reciente de cada indicativo.
 Cuando falta una fuente, el dashboard oculta sus tablas y tarjetas sin mostrar
