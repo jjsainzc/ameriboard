@@ -24,9 +24,12 @@
     }
     <!-- Cabecera -->
     <header class="dash-header">
-      <div>
-        <h1>{{ d.header.title }}</h1>
-        <p class="subtitle">{{ d.header.subtitle }}</p>
+      <div class="header-content">
+        <img class="header-icon" src="ameriboard-icon.png" width="64" height="64" alt="" aria-hidden="true" />
+        <div>
+          <h1>{{ d.header.title }}</h1>
+          <p class="subtitle">{{ d.header.subtitle }}</p>
+        </div>
       </div>
       @if (d.dvSwitchBridges.length) {
         <div class="bridge-badges" aria-label="Puentes DVSwitch configurados">

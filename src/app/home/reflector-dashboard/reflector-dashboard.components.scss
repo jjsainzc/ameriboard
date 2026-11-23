@@ -39,6 +39,19 @@
   border-radius: 12px;
   border: 1px solid #1e2538;
 
+  .header-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .header-icon {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
+    object-fit: contain;
+  }
+
   h1 {
     margin: 0;
     font-size: 1.4rem;
