@@ -11,7 +11,11 @@
 }
 
 .pagination-top > label:first-child { flex: 1 1 8rem; }
-.pagination-top label:last-child { white-space: nowrap; }
+.pagination-top { column-gap: 1rem; }
+.has-pagination .filter-label { max-width: 48rem; }
+.pagination-count { white-space: nowrap; }
+.page-size { display: flex; align-items: center; gap: 0.4rem; white-space: nowrap; }
+.page-size select { min-width: 4.5rem; }
 .filter-label {
   display: flex;
   align-items: center;

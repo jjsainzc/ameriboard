@@ -214,7 +214,7 @@ export class ReflectorService {
       dvSwitchLastHeard,
       echolinkConnected,
       echolinkLastHeard,
-      echolinkUptime: raw.echolinkUptime?.trim() || '—'
+      echolinkUptime: raw.echolinkUptime?.split('\n').filter(line => line.trim() !== '0').join('\n').trim() || '—'
     };
   }
 

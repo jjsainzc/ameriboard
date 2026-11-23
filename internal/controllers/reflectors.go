@@ -860,7 +860,14 @@ func readEchoLinkStatus(parent context.Context, command string) ([]EchoLinkStati
 	uptimeCancel()
 	uptime := ""
 	if uptimeErr == nil {
-		uptime = strings.TrimSpace(strings.ReplaceAll(string(uptimeOutput), "Uptime", "Server Uptime"))
+		lines := strings.Split(string(uptimeOutput), "\n")
+		visible := make([]string, 0, len(lines))
+		for _, line := range lines {
+			if strings.TrimSpace(line) != "0" {
+				visible = append(visible, line)
+			}
+		}
+		uptime = strings.TrimSpace(strings.ReplaceAll(strings.Join(visible, "\n"), "Uptime", "Server Uptime"))
 	} else {
 		return parseEchoLinkUsers(string(usersOutput)), "", true, fmt.Errorf("consultar uptime: %w", uptimeErr)
 	}

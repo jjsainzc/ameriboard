@@ -42,7 +42,7 @@ describe('ReflectorService', () => {
       }],
       echolinkConnectedList: [{ number: '1', user: 'W2LRC-R', attribute: 'T' }],
       echolinkLastHeard: [{ callsign: 'KQ4HPI-R', disconnectedAt: '2026-11-23T09:00:00-05:00', duration: '2m 5s' }],
-      echolinkUptime: 'Server Uptime: 1 day'
+      echolinkUptime: 'tlbcmd Version 0.56\r\n0\r\nServer Uptime: 10 days'
     });
     expect(service.data()?.stats).toEqual({
       ysfConnectedCount: 1, ysfTx24h: 2, dmrTx24h: 3, dvSwitchTx24h: 7, stations24h: 4
@@ -68,7 +68,7 @@ describe('ReflectorService', () => {
     expect(service.data()?.echolinkLastHeard).toEqual([
       { callsign: 'KQ4HPI-R', disconnectedAt: '2026-11-23T09:00:00-05:00', duration: '2m 5s' }
     ]);
-    expect(service.data()?.echolinkUptime).toBe('Server Uptime: 1 day');
+    expect(service.data()?.echolinkUptime).toBe('tlbcmd Version 0.56\r\nServer Uptime: 10 days');
     expect(service.error()).toBeNull();
   });
 

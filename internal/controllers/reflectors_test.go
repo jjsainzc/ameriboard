@@ -43,12 +43,12 @@ func TestParseEchoLinkUsers(t *testing.T) {
 
 func TestEchoLinkCommandOutput(t *testing.T) {
 	command := filepath.Join(t.TempDir(), "tlbcmd")
-	script := "#!/bin/sh\nif [ \"$1\" = users ]; then printf 'tlbcmd Version 0.56\\n0\\n1. KQ4HPI-R CT\\n'; else printf 'Uptime: 1 day\\n'; fi\n"
+	script := "#!/bin/sh\nif [ \"$1\" = users ]; then printf 'tlbcmd Version 0.56\\n0\\n1. KQ4HPI-R CT\\n'; else printf 'tlbcmd Version 0.56\\n0\\nUptime: 10 days\\n'; fi\n"
 	if err := os.WriteFile(command, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
 	stations, uptime, available, err := readEchoLinkStatus(context.Background(), command)
-	if err != nil || !available || len(stations) != 1 || stations[0].User != "KQ4HPI-R" || stations[0].Attribute != "CT" || uptime != "Server Uptime: 1 day" {
+	if err != nil || !available || len(stations) != 1 || stations[0].User != "KQ4HPI-R" || stations[0].Attribute != "CT" || uptime != "tlbcmd Version 0.56\nServer Uptime: 10 days" {
 		t.Fatalf("stations=%+v uptime=%q available=%v err=%v", stations, uptime, available, err)
 	}
 }
