@@ -17,7 +17,8 @@
 
 .footer p { margin: 0; font-variant-numeric: tabular-nums; }
 .technologies { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; }
-.technology { white-space: nowrap; font-weight: 600; }
+.technology { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; font-weight: 600; }
+.technology svg, .technology img { flex-shrink: 0; object-fit: contain; }
 .angular { color: #fb7185; }
 .go { color: #67e8f9; }
 

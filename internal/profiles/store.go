@@ -239,6 +239,16 @@ func (s *Store) save(p Profile, id string) (Profile, error) {
 	if err := validProfile(p); err != nil {
 		return Profile{}, err
 	}
+	u, err := url.Parse(p.URL)
+	if err != nil {
+		return Profile{}, fmt.Errorf("%w: dirección inválida", errInvalidProfile)
+	}
+	if u.Path == "" && (index < 0 || p.URL != strings.TrimRight(profiles[index].URL, "/")) {
+		p.URL += "/ameriboard"
+		if err := validProfile(p); err != nil {
+			return Profile{}, err
+		}
+	}
 	if index < 0 {
 		p.ID, err = randomValue()
 		if err != nil {

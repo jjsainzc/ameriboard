@@ -64,9 +64,10 @@
       <label for="site-name">Nombre
         <input id="site-name" formControlName="name" maxlength="100" />
       </label>
-      <label for="site-url">URL HTTP o HTTPS del dashboard remoto
-        <input id="site-url" type="url" formControlName="url" placeholder="https://ejemplo.org/ameriboard" />
+      <label for="site-url">Dirección HTTP o HTTPS del sitio remoto
+        <input id="site-url" type="url" formControlName="url" placeholder="https://ejemplo.org" />
       </label>
+      <small>Si solo introduces el host, se añade /ameriboard automáticamente.</small>
       <label for="site-password">Contraseña de administrador del sitio remoto
         <input id="site-password" [type]="sitePasswordVisible() ? 'text' : 'password'" formControlName="password" autocomplete="new-password" />
       </label>

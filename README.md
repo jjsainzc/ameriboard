@@ -87,7 +87,8 @@ podrá crearlo. La contraseña local se guarda como hash; la sesión dura como
 máximo ocho horas y la cookie no es persistente.
 
 Para añadir un sitio remoto, introduce su URL HTTP o HTTPS y su contraseña de
-administrador. Obtén esa contraseña del responsable del sitio por un canal
+administrador. Si la URL solo contiene el host, se añade automáticamente
+`/ameriboard`; también puedes indicar una ruta personalizada. Obtén esa contraseña del responsable del sitio por un canal
 seguro: también permite administrar directamente ese sitio. Las contraseñas
 remotas se almacenan en el servidor local para poder consultar sus datos; nunca
 se muestran al volver a editar el perfil. Deja el campo vacío al editar para

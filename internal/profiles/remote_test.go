@@ -27,10 +27,10 @@ func TestPublicIP(t *testing.T) {
 func TestRemoteHTTPAndAdminSession(t *testing.T) {
 	remoteStore := NewStore(t.TempDir())
 	remote := echo.New()
-	NewHandler(remoteStore).Register(remote.Group(""), "", func(c echo.Context) error {
+	NewHandler(remoteStore).Register(remote.Group("/ameriboard"), "/ameriboard", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"title": "remote"})
 	})
-	setup := httptest.NewRequest(http.MethodPost, "http://remote.example/api/admin/setup", strings.NewReader(`{"password":"12345678"}`))
+	setup := httptest.NewRequest(http.MethodPost, "http://remote.example/ameriboard/api/admin/setup", strings.NewReader(`{"password":"12345678"}`))
 	setup.Header.Set("Origin", "http://remote.example")
 	setup.Header.Set("X-Ameriboard-Request", "1")
 	rec := httptest.NewRecorder()
@@ -44,6 +44,9 @@ func TestRemoteHTTPAndAdminSession(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if profile.URL != "http://remote.example/ameriboard" {
+		t.Fatalf("unexpected profile URL: %s", profile.URL)
+	}
 	handler := NewHandler(localStore)
 	handler.client.Transport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		recorder := httptest.NewRecorder()
@@ -56,6 +59,23 @@ func TestRemoteHTTPAndAdminSession(t *testing.T) {
 	local.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://local.example/api/profiles/"+profile.ID+"/status", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "remote") {
 		t.Fatalf("HTTP profile: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestProfileDefaultPath(t *testing.T) {
+	for _, tc := range []struct{ input, want string }{
+		{"http://example.org/", "http://example.org/ameriboard"},
+		{"https://example.org:8080", "https://example.org:8080/ameriboard"},
+		{"https://example.org/ameriboard/", "https://example.org/ameriboard"},
+		{"https://example.org/otro", "https://example.org/otro"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			store := NewStore(t.TempDir())
+			p, err := store.save(Profile{Name: "Sitio", URL: tc.input, Password: "12345678"}, "")
+			if err != nil || p.URL != tc.want {
+				t.Fatalf("URL = %q, error = %v; want %q", p.URL, err, tc.want)
+			}
+		})
 	}
 }
 
