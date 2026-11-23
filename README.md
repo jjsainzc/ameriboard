@@ -26,6 +26,11 @@ sudo apt update
 sudo apt install ameriboard
 ```
 
+Para Debian 10 que ya no existe soporte, se puede usar este comando solo para actualizar la aplicación.
+```
+sudo apt install --only-upgrade ameriboard
+```
+
 > **NOTA:** Si lo va a usar en Raspberries o Thin Clients (ej. Dell Wyse), recomiendo use la instalación previamente descrita.
 > Si usted es desarrollador con conocimientos de Node.js/Angular/Go Language entonces este repositorio le puede servir.
 
