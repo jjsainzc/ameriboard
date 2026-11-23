@@ -6,6 +6,37 @@ import { ReflectorDashboardComponent } from './reflector-dashboard.component';
 import { ReflectorService } from '../../core/services/reflector.service';
 
 describe('ReflectorDashboardComponent', () => {
+  it('labels every populated table cell for the mobile card layout', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+      header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 1, ysfTx24h: 1, dmrTx24h: 1, stations24h: 1 },
+      ysfConnectedList: [{ callsign: 'TEST1', ip: '192.0.2.1', type: 'Gateway', since: '10:00' }],
+      ysfLastTx: [{ callsign: 'TEST1', duration: '5s', ago: '1m' }],
+      dmrLastTx: [{ callsign: 'TEST1', duration: '5s', ago: '1m' }],
+      echolinkAvailable: true,
+      echolinkConnectedList: [{ number: '1', user: 'TEST1', attribute: 'T' }]
+    });
+    fixture.detectChanges();
+    const tables = fixture.nativeElement.querySelectorAll('table') as NodeListOf<HTMLTableElement>;
+    expect(tables).toHaveLength(5);
+    for (const table of tables) {
+      const headings = Array.from(table.querySelectorAll('thead th'), th => th.textContent?.trim());
+      const row = table.querySelector('tbody tr')!;
+      const labels = Array.from(row.querySelectorAll('td, th'), cell => cell.getAttribute('data-label'));
+      expect(labels).toEqual(headings);
+    }
+    fixture.destroy();
+    http.verify();
+  });
+
   it('displays the IP of each connected YSF station', async () => {
     await TestBed.configureTestingModule({
       imports: [ReflectorDashboardComponent],

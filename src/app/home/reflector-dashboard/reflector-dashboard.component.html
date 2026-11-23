@@ -75,10 +75,10 @@
             <tbody>
               @for (st of d.ysfConnected; track $index) {
                 <tr>
-                  <td class="callsign">{{ st.callsign }}</td>
-                  <td class="mono">{{ st.ip }}</td>
-                  <td>{{ st.gateway }}</td>
-                  <td class="mono">{{ st.since }}</td>
+                  <td data-label="Indicativo" class="callsign">{{ st.callsign }}</td>
+                  <td data-label="IP" class="mono">{{ st.ip }}</td>
+                  <td data-label="Gateway">{{ st.gateway }}</td>
+                  <td data-label="Última lectura" class="mono">{{ st.since }}</td>
                 </tr>
               } @empty {
                 <tr>
@@ -111,12 +111,12 @@
             <tbody>
               @for (item of d.ysfLastHeard; track item.time + item.callsign) {
                 <tr>
-                  <td class="mono">{{ item.time }}</td>
-                  <td class="callsign">{{ item.callsign }}</td>
-                  <td>{{ item.target }}</td>
-                  <td>{{ item.gateway }}</td>
-                  <td class="mono">{{ item.duration }}</td>
-                  <td class="mono">{{ item.loss }}</td>
+                  <td data-label="Hace" class="mono">{{ item.time }}</td>
+                  <td data-label="Indicativo" class="callsign">{{ item.callsign }}</td>
+                  <td data-label="Destino">{{ item.target }}</td>
+                  <td data-label="Gateway">{{ item.gateway }}</td>
+                  <td data-label="Duración" class="mono">{{ item.duration }}</td>
+                  <td data-label="Pérdida" class="mono">{{ item.loss }}</td>
                 </tr>
               } @empty {
                 <tr>
@@ -153,9 +153,9 @@
           <tbody>
             @for (station of d.echolinkConnected; track station.number + station.user) {
               <tr>
-                <td class="mono">{{ station.number }}</td>
-                <td class="callsign">{{ station.user }}</td>
-                <td class="mono">{{ station.attribute || '—' }}</td>
+                <td data-label="#" class="mono">{{ station.number }}</td>
+                <td data-label="Usuario" class="callsign">{{ station.user }}</td>
+                <td data-label="Atributo" class="mono">{{ station.attribute || '—' }}</td>
               </tr>
             } @empty {
               <tr>
@@ -172,7 +172,7 @@
         <thead><tr><th scope="col">Atributo</th><th scope="col">Significado</th></tr></thead>
         <tbody>
           @for (attribute of echolinkAttributes; track attribute.code) {
-            <tr><th scope="row">{{ attribute.code }}</th><td>{{ attribute.meaning }}</td></tr>
+            <tr><th scope="row" data-label="Atributo">{{ attribute.code }}</th><td data-label="Significado">{{ attribute.meaning }}</td></tr>
           }
         </tbody>
       </table>
@@ -200,12 +200,12 @@
           <tbody>
             @for (dmr of d.dmrLastHeard; track dmr.time + dmr.callsign) {
               <tr>
-                <td class="mono">{{ dmr.time }}</td>
-                <td class="callsign">{{ dmr.callsign }}</td>
-                <td class="mono">{{ dmr.dmrId }}</td>
-                <td><span class="tg-badge">{{ dmr.talkgroup }}</span></td>
-                <td>{{ dmr.source }}</td>
-                <td class="mono">{{ dmr.duration }}</td>
+                <td data-label="Hace" class="mono">{{ dmr.time }}</td>
+                <td data-label="Indicativo" class="callsign">{{ dmr.callsign }}</td>
+                <td data-label="DMR ID" class="mono">{{ dmr.dmrId }}</td>
+                <td data-label="Talkgroup"><span class="tg-badge">{{ dmr.talkgroup }}</span></td>
+                <td data-label="Origen">{{ dmr.source }}</td>
+                <td data-label="Duración" class="mono">{{ dmr.duration }}</td>
               </tr>
             } @empty {
               <tr>

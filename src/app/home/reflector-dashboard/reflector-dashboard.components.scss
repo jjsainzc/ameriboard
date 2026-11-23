@@ -189,14 +189,16 @@
   &::backdrop { background: #000b; }
 }
 
-.ysf-last-heard {
-  th:nth-child(2), td:nth-child(2),
-  th:nth-child(5), td:nth-child(5),
-  th:nth-child(6), td:nth-child(6) {
-    width: 1%;
-    padding-left: 0.45rem;
-    padding-right: 0.45rem;
-    white-space: nowrap;
+@media (min-width: 701px) {
+  .ysf-last-heard {
+    th:nth-child(2), td:nth-child(2),
+    th:nth-child(5), td:nth-child(5),
+    th:nth-child(6), td:nth-child(6) {
+      width: 1%;
+      padding-left: 0.45rem;
+      padding-right: 0.45rem;
+      white-space: nowrap;
+    }
   }
 }
 
@@ -268,5 +270,82 @@ table {
     text-align: center;
     color: #64748b;
     padding: 1.5rem;
+  }
+}
+
+@media (max-width: 700px) {
+  :host {
+    padding: 0.75rem;
+  }
+
+  .panel-card .panel-header,
+  .echolink-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  table {
+    display: block;
+
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    tbody {
+      display: grid;
+      gap: 0.75rem;
+      padding: 0.75rem;
+    }
+
+    tbody tr {
+      display: block;
+      min-width: 0;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    tbody td, tbody th {
+      display: grid;
+      grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
+      gap: 0.75rem;
+      width: auto;
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #1e2538;
+      overflow-wrap: anywhere;
+      text-align: left;
+      white-space: normal;
+    }
+
+    tbody th {
+      background: transparent;
+      color: #cbd5e1;
+      font-size: 0.875rem;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    tbody td[data-label]::before, tbody th[data-label]::before {
+      content: attr(data-label);
+      color: #94a3b8;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    tbody .empty-msg {
+      display: block;
+      padding: 1.5rem;
+    }
+  }
+
+  .echolink-legend {
+    box-sizing: border-box;
+    max-width: 95vw;
   }
 }
