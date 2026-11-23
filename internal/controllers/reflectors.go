@@ -466,7 +466,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 					dvSwitchTX = append(dvSwitchTX, TXEntry{
 						Callsign: pendingDVSwitchNetworkTx.callsign, Duration: durationValue,
 						Ago: formatAgo(now.Sub(pendingDVSwitchNetworkTx.start)), Mode: pendingDVSwitchNetworkTx.mode,
-						RxTime: pendingDVSwitchNetworkTx.start.Format("01-02 15:04:05"),
+						RxTime: pendingDVSwitchNetworkTx.start.Format("02/01/2006 15:04:05"),
 						Name:   "—", Source: "Net", Loss: lossValue, BER: berValue,
 						Target: pendingDVSwitchNetworkTx.target, timestamp: pendingDVSwitchNetworkTx.start,
 					})
@@ -591,7 +591,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 					Duration:  fmt.Sprintf("%.1f", secs),
 					Ago:       formatAgo(now.Sub(ts)),
 					Mode:      pendingDVSwitchTx.mode,
-					RxTime:    ts.Format("01-02 15:04:05"),
+					RxTime:    ts.Format("02/01/2006 15:04:05"),
 					Name:      "—",
 					Source:    "—",
 					Loss:      "—",
@@ -649,7 +649,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		target := formatDVSwitchTarget(pendingDVSwitchTx.mode, pendingDVSwitchTx.dstTG, pendingDVSwitchTx.callsign)
 		entry := TXEntry{
 			Callsign: pendingDVSwitchTx.callsign, Duration: "—", Ago: formatAgo(now.Sub(pendingDVSwitchTx.start)),
-			Mode: pendingDVSwitchTx.mode, RxTime: pendingDVSwitchTx.start.Format("01-02 15:04:05"),
+			Mode: pendingDVSwitchTx.mode, RxTime: pendingDVSwitchTx.start.Format("02/01/2006 15:04:05"),
 			Name: "—", Source: "—", Loss: "—", BER: "—", DMRID: pendingDVSwitchTx.srcID,
 			Target:    target,
 			timestamp: pendingDVSwitchTx.start,
@@ -664,7 +664,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		dvSwitchTX = append(dvSwitchTX, TXEntry{
 			Callsign: pendingDVSwitchNetworkTx.callsign, Duration: "—",
 			Ago: formatAgo(now.Sub(pendingDVSwitchNetworkTx.start)), Mode: pendingDVSwitchNetworkTx.mode,
-			RxTime: pendingDVSwitchNetworkTx.start.Format("01-02 15:04:05"),
+			RxTime: pendingDVSwitchNetworkTx.start.Format("02/01/2006 15:04:05"),
 			Name:   "—", Source: "Net", Loss: "—", BER: "—",
 			Target: pendingDVSwitchNetworkTx.target, timestamp: pendingDVSwitchNetworkTx.start,
 		})

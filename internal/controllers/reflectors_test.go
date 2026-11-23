@@ -207,6 +207,9 @@ func TestDVSwitchActivityIncludesAllTransmissionModes(t *testing.T) {
 	if len(response.DVSwitchLastTX) != len(wantModes) {
 		t.Fatalf("DVSwitch rows = %+v", response.DVSwitchLastTX)
 	}
+	if want := now.Add(-3 * time.Second).In(time.Local).Format("02/01/2006 15:04:05"); response.DVSwitchLastTX[0].RxTime != want {
+		t.Fatalf("DVSwitch local timestamp = %q, want %q", response.DVSwitchLastTX[0].RxTime, want)
+	}
 	for i, mode := range wantModes {
 		entry := response.DVSwitchLastTX[i]
 		if entry.Mode != mode || entry.DMRID != "7400203" || entry.Callsign != "HC1LNM" ||
@@ -253,6 +256,9 @@ func TestDVSwitchNetworkRowsUseBridgeLogMetrics(t *testing.T) {
 	}
 	if len(response.DVSwitchLastTX) != 3 {
 		t.Fatalf("DVSwitch network rows = %+v", response.DVSwitchLastTX)
+	}
+	if want := now.Add(-10 * time.Second).In(time.Local).Format("02/01/2006 15:04:05"); response.DVSwitchLastTX[0].RxTime != want {
+		t.Fatalf("DVSwitch network timestamp = %q, want %q", response.DVSwitchLastTX[0].RxTime, want)
 	}
 	want := []struct {
 		mode, callsign, target, duration, loss, ber string

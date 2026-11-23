@@ -90,6 +90,8 @@ y solo presenta las modalidades que aparecen en el log configurado en
 `dmr_log_dir`. Acepta transmisiones locales (`Begin TX`/`TX state = OFF`) y de
 red (`received ...`/`end of transmission`). Nombre y origen se muestran como
 `—` si el log no los proporciona; pérdida y BER se completan cuando están presentes.
+La fecha y hora DVSwitch se muestran en formato día/mes/año y en la zona
+horaria del servidor que genera los datos.
 Cuando falta una fuente, el dashboard oculta sus tablas y tarjetas sin mostrar
 avisos; las demás fuentes continúan funcionando. Los últimos escuchados YSF
 pueden mostrarse con datos del log DVSwitch, aun sin el log del reflector YSF.

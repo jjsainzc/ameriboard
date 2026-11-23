@@ -149,7 +149,8 @@
     }
 
     @if (d.echolinkAvailable) {
-    <section class="panel-card full-width" aria-labelledby="echolink-title">
+    <section class="echolink-grid" aria-label="Actividad EchoLink">
+    <section class="panel-card" aria-labelledby="echolink-title">
       <div class="panel-header">
         <h2 id="echolink-title">EchoLink conectado</h2>
         <div class="echolink-actions">
@@ -185,22 +186,7 @@
         </table>
       </div>
     </section>
-    <dialog #legendDialog class="echolink-legend" aria-labelledby="echolink-legend-title">
-      <h2 id="echolink-legend-title">Atributos de EchoLink</h2>
-      <table>
-        <thead><tr><th scope="col">Atributo</th><th scope="col">Significado</th></tr></thead>
-        <tbody>
-          @for (attribute of echolinkAttributes; track attribute.code) {
-            <tr><th scope="row" data-label="Atributo">{{ attribute.code }}</th><td data-label="Significado">{{ attribute.meaning }}</td></tr>
-          }
-        </tbody>
-      </table>
-      <button type="button" (click)="legendDialog.close()">Cerrar</button>
-    </dialog>
-    }
-
-    @if (d.echolinkAvailable) {
-    <section class="panel-card full-width" aria-labelledby="echolink-history-title">
+    <section class="panel-card" aria-labelledby="echolink-history-title">
       <div class="panel-header">
         <h2 id="echolink-history-title">Últimos escuchados vía EchoLink</h2>
         <span class="count-pill">{{ d.echolinkLastHeard.length }}</span>
@@ -230,6 +216,19 @@
         </table>
       </div>
     </section>
+    </section>
+    <dialog #legendDialog class="echolink-legend" aria-labelledby="echolink-legend-title">
+      <h2 id="echolink-legend-title">Atributos de EchoLink</h2>
+      <table>
+        <thead><tr><th scope="col">Atributo</th><th scope="col">Significado</th></tr></thead>
+        <tbody>
+          @for (attribute of echolinkAttributes; track attribute.code) {
+            <tr><th scope="row" data-label="Atributo">{{ attribute.code }}</th><td data-label="Significado">{{ attribute.meaning }}</td></tr>
+          }
+        </tbody>
+      </table>
+      <button type="button" (click)="legendDialog.close()">Cerrar</button>
+    </dialog>
     }
 
     <!-- Actividad registrada por modalidad en el log DVSwitch -->
@@ -242,7 +241,7 @@
         <table class="dvswitch-table">
           <thead>
             <tr>
-              <th>Rx Time</th>
+              <th>Fecha y hora</th>
               <th>Mode</th>
               <th>Callsign</th>
               <th>Name</th>
@@ -256,7 +255,7 @@
           <tbody>
             @for (tx of d.dvSwitchLastHeard; track tx.rxTime + tx.callsign + tx.mode + tx.target) {
               <tr>
-                <td data-label="Rx Time" class="mono">{{ tx.rxTime }}</td>
+                <td data-label="Fecha y hora" class="mono">{{ tx.rxTime }}</td>
                 <td data-label="Mode">
                   <span class="mode-badge"
                     [class.mode-dmr]="tx.mode === 'DMR'"

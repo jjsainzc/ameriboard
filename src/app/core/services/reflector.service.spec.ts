@@ -36,6 +36,9 @@ describe('ReflectorService', () => {
       dvSwitchLastTx: [{
         rxTime: '11-23 09:58:16', mode: 'NXDN', callsign: 'N0CALL', name: '—', target: 'TG 8465',
         source: 'Net', duration: '2.6', loss: '—', ber: '0.0%'
+      }, {
+        rxTime: '23/11/2026 09:58:17', mode: 'DMR', callsign: 'TEST1', name: '—', target: 'TG 9',
+        source: 'Net', duration: '1.0', loss: '—', ber: '—'
       }],
       echolinkConnectedList: [{ number: '1', user: 'W2LRC-R', attribute: 'T' }],
       echolinkLastHeard: [{ callsign: 'KQ4HPI-R', disconnectedAt: '2026-11-23T09:00:00-05:00', duration: '2m 5s' }],
@@ -53,8 +56,12 @@ describe('ReflectorService', () => {
     ]);
     expect(service.data()?.dvSwitchLastHeard).toEqual([
       {
-        rxTime: '11-23 09:58:16', mode: 'NXDN', callsign: 'N0CALL', name: '—', target: 'TG 8465',
+        rxTime: '23/11 09:58:16', mode: 'NXDN', callsign: 'N0CALL', name: '—', target: 'TG 8465',
         source: 'Net', duration: '2.6', loss: '—', ber: '0.0%'
+      },
+      {
+        rxTime: '23/11/2026 09:58:17', mode: 'DMR', callsign: 'TEST1', name: '—', target: 'TG 9',
+        source: 'Net', duration: '1.0', loss: '—', ber: '—'
       }
     ]);
     expect(service.data()?.echolinkConnected).toEqual([{ number: '1', user: 'W2LRC-R', attribute: 'T' }]);

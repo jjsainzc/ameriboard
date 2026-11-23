@@ -290,6 +290,11 @@ describe('ReflectorDashboardComponent', () => {
     });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#echolink-title').textContent).toContain('EchoLink');
+    const echoPanels = fixture.nativeElement.querySelectorAll('.echolink-grid > .panel-card');
+    expect(echoPanels).toHaveLength(2);
+    expect(echoPanels[0].querySelector('#echolink-title')).not.toBeNull();
+    expect(echoPanels[1].querySelector('#echolink-history-title')).not.toBeNull();
+    expect(echoPanels[1].textContent).toContain('Aún no hay desconexiones registradas.');
     const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
     const show = vi.fn();
     const close = vi.fn();

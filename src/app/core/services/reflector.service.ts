@@ -167,7 +167,7 @@ export class ReflectorService {
     }));
 
     const dvSwitchLastHeard: DVSwitchActivity[] = (raw.dvSwitchLastTx ?? []).map((tx) => ({
-      rxTime: tx.rxTime,
+      rxTime: tx.rxTime.replace(/^(\d{2})-(\d{2}) (\d{2}:\d{2}:\d{2})$/, '$2/$1 $3'),
       mode: tx.mode,
       callsign: tx.callsign,
       name: tx.name || '—',
