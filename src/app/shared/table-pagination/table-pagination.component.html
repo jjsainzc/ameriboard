@@ -1,0 +1,24 @@
+@if (pagination.count() > 25 && placement === 'top') {
+  <div class="pagination-top">
+    <label>
+      <span class="visually-hidden">Buscar en {{ label }}</span>
+      <input type="search" placeholder="Buscar" [value]="pagination.search()" (input)="changeSearch($event)">
+    </label>
+    <span aria-live="polite">{{ pagination.filteredCount() }} registros</span>
+    <label>Por página
+      <select [value]="pagination.pageSize()" (change)="changePageSize($event)">
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="25">25</option>
+      </select>
+    </label>
+  </div>
+} @else if (pagination.count() > 25) {
+  <nav class="pagination-nav" [attr.aria-label]="'Paginación de ' + label">
+    <button type="button" aria-label="Ir al inicio" [disabled]="pagination.currentPage() === 1" (click)="pagination.setPage(1)">«</button>
+    <button type="button" [disabled]="pagination.currentPage() === 1" (click)="pagination.setPage(pagination.currentPage() - 1)">Anterior</button>
+    <span aria-live="polite">Página {{ pagination.currentPage() }} de {{ pagination.totalPages() }}</span>
+    <button type="button" [disabled]="pagination.currentPage() === pagination.totalPages()" (click)="pagination.setPage(pagination.currentPage() + 1)">Siguiente</button>
+    <button type="button" aria-label="Ir al final" [disabled]="pagination.currentPage() === pagination.totalPages()" (click)="pagination.setPage(pagination.totalPages())">»</button>
+  </nav>
+}

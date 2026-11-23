@@ -761,9 +761,9 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			DVSwitchTx24h:   len(dvSwitchTX),
 			Stations24h:     len(uniqueCallsigns),
 		},
-		YSFLastTX:             limitUniqueTX(ysfTX, 25),
+		YSFLastTX:             limitUniqueTX(ysfTX, len(ysfTX)),
 		DMRLastTX:             limitUniqueTX(dmrTX, 25),
-		DVSwitchLastTX:        limitTX(dvSwitchTX, 25),
+		DVSwitchLastTX:        dvSwitchTX,
 		DMRActive24h:          dmrActiveList,
 		YSFStations24h:        ysfStations,
 		YSFConnectedList:      currentSnapshotList,
@@ -973,13 +973,6 @@ func formatAgo(d time.Duration) string {
 		return fmt.Sprintf("hace %dm", int(d.Minutes()))
 	}
 	return fmt.Sprintf("hace %dh", int(d.Hours()))
-}
-
-func limitTX(s []TXEntry, max int) []TXEntry {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max]
 }
 
 func limitUniqueTX(s []TXEntry, max int) []TXEntry {

@@ -6,6 +6,65 @@ import { ReflectorDashboardComponent } from './reflector-dashboard.component';
 import { ReflectorService } from '../../core/services/reflector.service';
 
 describe('ReflectorDashboardComponent', () => {
+  it('paginates independently only above 25 rows and handles filtering and live updates', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+      header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 25, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
+      ysfConnectedList: Array.from({ length: 25 }, (_, i) => ({
+        callsign: `CALL${i}`, ip: '192.0.2.1', type: 'Gateway', since: '10:00'
+      })),
+      echolinkAvailable: true,
+      echolinkConnectedList: Array.from({ length: 26 }, (_, i) => ({
+        number: `${i}`, user: `ECHO${i}`, attribute: 'T'
+      }))
+    });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[aria-label="Paginación de estaciones YSF conectadas"]')).toBeNull();
+    const echoPanel = root.querySelector('[aria-labelledby="echolink-title"]')!;
+    expect(echoPanel.querySelectorAll('tbody tr')).toHaveLength(25);
+    expect(echoPanel.textContent).toContain('Página 1 de 2');
+    const next = Array.from(echoPanel.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Siguiente')!;
+    next.click();
+    fixture.detectChanges();
+    expect(echoPanel.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(echoPanel.textContent).toContain('ECHO25');
+
+    const size = echoPanel.querySelector('select') as HTMLSelectElement;
+    size.value = '5';
+    size.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(echoPanel.textContent).toContain('Página 1 de 6');
+    expect(echoPanel.querySelectorAll('tbody tr')).toHaveLength(5);
+
+    const search = echoPanel.querySelector('input[type="search"]') as HTMLInputElement;
+    search.value = 'echo2';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(echoPanel.textContent).toContain('Página 1 de 2');
+    expect(echoPanel.querySelectorAll('tbody tr')).toHaveLength(5);
+    expect(fixture.componentInstance.ysfConnectedPages.currentPage()).toBe(1);
+
+    const service = TestBed.inject(ReflectorService);
+    const data = service.data()!;
+    service.data.set({ ...data, echolinkConnected: data.echolinkConnected.slice(0, 25) });
+    fixture.detectChanges();
+    expect(echoPanel.querySelector('nav')).toBeNull();
+    expect(echoPanel.querySelector('input')).toBeNull();
+    expect(echoPanel.querySelectorAll('tbody tr')).toHaveLength(25);
+    expect(fixture.componentInstance.echolinkConnectedPages.search()).toBe('');
+    fixture.destroy();
+    http.verify();
+  });
+
   it('labels every populated table cell for the mobile card layout', async () => {
     await TestBed.configureTestingModule({
       imports: [ReflectorDashboardComponent],

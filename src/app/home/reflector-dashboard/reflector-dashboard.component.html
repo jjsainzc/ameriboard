@@ -77,6 +77,7 @@
           <h2>Estación o gateway conectado</h2>
           <span class="count-pill">{{ d.ysfConnected.length }}</span>
         </div>
+        <app-table-pagination placement="top" label="estaciones YSF conectadas" [pagination]="ysfConnectedPages" />
         <div class="table-responsive">
           <table>
             <thead>
@@ -88,7 +89,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (st of d.ysfConnected; track $index) {
+              @for (st of ysfConnectedPages.rows(); track $index) {
                 <tr>
                   <td data-label="Indicativo" class="callsign">{{ st.callsign }}</td>
                   <td data-label="IP" class="mono">{{ st.ip }}</td>
@@ -97,12 +98,13 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="4" class="empty-msg">No hay estaciones conectadas</td>
+                  <td colspan="4" class="empty-msg">{{ ysfConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay estaciones conectadas' }}</td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+        <app-table-pagination label="estaciones YSF conectadas" [pagination]="ysfConnectedPages" />
       </div>
       }
 
@@ -113,6 +115,7 @@
           <h2>Últimos escuchados YSF</h2>
           <span class="refresh-tag">Auto 5s</span>
         </div>
+        <app-table-pagination placement="top" label="últimos escuchados YSF" [pagination]="ysfLastHeardPages" />
         <div class="table-responsive">
           <table class="ysf-last-heard">
             <thead>
@@ -126,7 +129,7 @@
               </tr>
             </thead>
             <tbody>
-              @for (item of d.ysfLastHeard; track item.time + item.callsign) {
+              @for (item of ysfLastHeardPages.rows(); track item.time + item.callsign) {
                 <tr>
                   <td data-label="Hace" class="mono">{{ item.time }}</td>
                   <td data-label="Indicativo" class="callsign">{{ item.callsign }}</td>
@@ -137,12 +140,13 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6" class="empty-msg">Sin actividad reciente en YSF</td>
+                  <td colspan="6" class="empty-msg">{{ ysfLastHeardPages.search() ? 'Sin resultados para la búsqueda' : 'Sin actividad reciente en YSF' }}</td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+        <app-table-pagination label="últimos escuchados YSF" [pagination]="ysfLastHeardPages" />
       </div>
       }
     </section>
@@ -161,6 +165,7 @@
       @if (d.echolinkUptime !== '—') {
         <div class="echolink-uptime mono">{{ d.echolinkUptime }}</div>
       }
+      <app-table-pagination placement="top" label="EchoLink conectado" [pagination]="echolinkConnectedPages" />
       <div class="table-responsive">
         <table>
           <thead>
@@ -171,7 +176,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (station of d.echolinkConnected; track station.number + station.user) {
+            @for (station of echolinkConnectedPages.rows(); track station.number + station.user) {
               <tr>
                 <td data-label="#" class="mono">{{ station.number }}</td>
                 <td data-label="Usuario" class="callsign">{{ station.user }}</td>
@@ -179,18 +184,20 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="3" class="empty-msg">No hay nodos EchoLink conectados</td>
+                <td colspan="3" class="empty-msg">{{ echolinkConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay nodos EchoLink conectados' }}</td>
               </tr>
             }
           </tbody>
         </table>
       </div>
+      <app-table-pagination label="EchoLink conectado" [pagination]="echolinkConnectedPages" />
     </section>
     <section class="panel-card" aria-labelledby="echolink-history-title">
       <div class="panel-header">
         <h2 id="echolink-history-title">Últimos escuchados vía EchoLink</h2>
         <span class="count-pill">{{ d.echolinkLastHeard.length }}</span>
       </div>
+      <app-table-pagination placement="top" label="últimos escuchados EchoLink" [pagination]="echolinkLastHeardPages" />
       <div class="table-responsive">
         <table class="echolink-compact-table">
           <thead>
@@ -201,7 +208,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (station of d.echolinkLastHeard; track station.callsign) {
+            @for (station of echolinkLastHeardPages.rows(); track station.callsign) {
               <tr>
                 <td data-label="Indicativo" class="callsign">{{ station.callsign }}</td>
                 <td data-label="Última desconexión" class="mono">{{ station.disconnectedAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
@@ -209,17 +216,18 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="3" class="empty-msg">Aún no hay desconexiones registradas.</td>
+                <td colspan="3" class="empty-msg">{{ echolinkLastHeardPages.search() ? 'Sin resultados para la búsqueda' : 'Aún no hay desconexiones registradas.' }}</td>
               </tr>
             }
           </tbody>
         </table>
       </div>
+      <app-table-pagination label="últimos escuchados EchoLink" [pagination]="echolinkLastHeardPages" />
     </section>
     </section>
     <dialog #legendDialog class="echolink-legend" aria-labelledby="echolink-legend-title">
       <h2 id="echolink-legend-title">Atributos de EchoLink</h2>
-      <table>
+      <table class="legend-table">
         <thead><tr><th scope="col">Atributo</th><th scope="col">Significado</th></tr></thead>
         <tbody>
           @for (attribute of echolinkAttributes; track attribute.code) {
@@ -237,6 +245,7 @@
       <div class="panel-header">
         <h2>{{ d.dvSwitchTitle }}</h2>
       </div>
+      <app-table-pagination placement="top" label="actividad DVSwitch" [pagination]="dvSwitchPages" />
       <div class="table-responsive">
         <table class="dvswitch-table">
           <thead>
@@ -253,7 +262,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (tx of d.dvSwitchLastHeard; track tx.rxTime + tx.callsign + tx.mode + tx.target) {
+            @for (tx of dvSwitchPages.rows(); track tx.rxTime + tx.callsign + tx.mode + tx.target) {
               <tr>
                 <td data-label="Fecha y hora" class="mono">{{ tx.rxTime }}</td>
                 <td data-label="Mode">
@@ -274,12 +283,13 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="9" class="empty-msg">Sin transmisiones recientes en DVSwitch</td>
+                <td colspan="9" class="empty-msg">{{ dvSwitchPages.search() ? 'Sin resultados para la búsqueda' : 'Sin transmisiones recientes en DVSwitch' }}</td>
               </tr>
             }
           </tbody>
         </table>
       </div>
+      <app-table-pagination label="actividad DVSwitch" [pagination]="dvSwitchPages" />
     </section>
     }
   </div>

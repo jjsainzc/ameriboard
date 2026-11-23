@@ -1,0 +1,35 @@
+:host { display: block; min-width: 0; }
+
+.pagination-top, .pagination-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.pagination-top > label:first-child { flex: 1 1 8rem; }
+.pagination-top label:last-child { white-space: nowrap; }
+.pagination-top input { width: 100%; box-sizing: border-box; }
+.pagination-nav { justify-content: center; }
+
+input, select, button {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #455b68;
+  border-radius: 4px;
+  background: #18232c;
+  color: #e5edf2;
+  font: inherit;
+}
+
+button:disabled { opacity: 0.5; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

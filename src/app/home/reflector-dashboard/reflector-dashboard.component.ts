@@ -1,12 +1,13 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ReflectorService, SiteProfile } from '../../core/services/reflector.service';
+import { TablePagination, TablePaginationComponent } from '../../shared/table-pagination/table-pagination.component';
 
 @Component({
   selector: 'app-reflector-dashboard',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, TablePaginationComponent],
   templateUrl: './reflector-dashboard.component.html',
   styleUrl: './reflector-dashboard.components.scss'
 })
@@ -19,6 +20,14 @@ export class ReflectorDashboardComponent implements OnInit {
   readonly loading = this.reflectorService.loading;
   readonly profiles = signal<SiteProfile[]>([]);
   readonly profilesError = signal('');
+  readonly ysfConnectedPages = new TablePagination(computed(() => this.data()?.ysfConnected ?? []));
+  readonly ysfLastHeardPages = new TablePagination(computed(() => this.data()?.ysfLastHeard ?? []));
+  readonly echolinkConnectedPages = new TablePagination(computed(() => this.data()?.echolinkConnected ?? []));
+  readonly echolinkLastHeardPages = new TablePagination(computed(() => this.data()?.echolinkLastHeard ?? []), station => [
+    station.callsign, station.duration, station.disconnectedAt,
+    new DatePipe('en-US').transform(station.disconnectedAt, 'dd/MM/yyyy HH:mm:ss') ?? ''
+  ]);
+  readonly dvSwitchPages = new TablePagination(computed(() => this.data()?.dvSwitchLastHeard ?? []));
   readonly echolinkAttributes = [
     { code: 'A', meaning: 'Sesión iniciada como administrador.' },
     { code: 'a', meaning: 'Códec ADPCM.' },
@@ -53,6 +62,10 @@ export class ReflectorDashboardComponent implements OnInit {
   }
 
   selectProfile(event: Event): void {
+    for (const pagination of [this.ysfConnectedPages, this.ysfLastHeardPages, this.echolinkConnectedPages,
+      this.echolinkLastHeardPages, this.dvSwitchPages]) {
+      pagination.reset();
+    }
     this.reflectorService.selectProfile((event.target as HTMLSelectElement).value);
   }
 

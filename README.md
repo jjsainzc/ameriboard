@@ -92,6 +92,11 @@ red (`received ...`/`end of transmission`). Nombre y origen se muestran como
 `—` si el log no los proporciona; pérdida y BER se completan cuando están presentes.
 La fecha y hora DVSwitch se muestran en formato día/mes/año y en la zona
 horaria del servidor que genera los datos.
+Las tablas de conexiones y actividad muestran hasta 25 registros por página.
+Cuando hay más de 25 registros se habilitan la búsqueda y la navegación; se
+puede elegir entre 5, 10 y 25 registros por página. La actividad YSF y DVSwitch
+comprende los registros disponibles de las últimas 24 horas; YSF conserva la
+transmisión más reciente de cada indicativo.
 Cuando falta una fuente, el dashboard oculta sus tablas y tarjetas sin mostrar
 avisos; las demás fuentes continúan funcionando. Los últimos escuchados YSF
 pueden mostrarse con datos del log DVSwitch, aun sin el log del reflector YSF.

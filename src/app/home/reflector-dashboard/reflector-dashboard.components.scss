@@ -180,11 +180,17 @@
 }
 
 .echolink-legend {
-  width: min(42rem, 90vw);
+  box-sizing: border-box;
+  width: min(34rem, 95vw);
   max-height: 85vh;
   border: 1px solid #64748b;
   background: #131724;
   color: #e2e8f0;
+
+  h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+  th, td { padding: 0.25rem 0.5rem; line-height: 1.25; }
+  tbody th { width: 1%; text-transform: none; }
+  button { margin-top: 0.75rem; }
 
   &::backdrop { background: #000b; }
 }
@@ -202,7 +208,7 @@
   }
 }
 
-table {
+table:not(.legend-table) {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.875rem;
@@ -358,8 +364,4 @@ table {
     }
   }
 
-  .echolink-legend {
-    box-sizing: border-box;
-    max-width: 95vw;
-  }
 }

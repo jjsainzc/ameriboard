@@ -170,6 +170,37 @@ func TestBridgeTrafficAndLatestFirst(t *testing.T) {
 	}
 }
 
+func TestStatusReturnsMoreThan25ActivityRows(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
+	var log strings.Builder
+	for i := 0; i < 30; i++ {
+		start := now.Add(time.Duration(i-60) * time.Second).Format("2006-01-02 15:04:05.000")
+		end := now.Add(time.Duration(i-59) * time.Second).Format("2006-01-02 15:04:05.000")
+		fmt.Fprintf(&log, "M: %s YSF, received network data from CALL%02d to ALL at CALL%02d\n"+
+			"M: %s YSF, received network end of transmission, 1.0 seconds\n", start, i, i, end)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "MMDVM_Bridge-"+now.Format("2006-01-02")+".log"), []byte(log.String()), 0600); err != nil {
+		t.Fatal(err)
+	}
+	service := NewReflectorService(ReflectorConfig{DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd"})
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	if err := service.GetStatus(e.NewContext(httptest.NewRequest("GET", "/", nil), rec)); err != nil {
+		t.Fatal(err)
+	}
+	var response DashboardStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.YSFLastTX) != 30 || len(response.DVSwitchLastTX) != 30 {
+		t.Fatalf("activity rows: YSF=%d DVSwitch=%d, want 30 each", len(response.YSFLastTX), len(response.DVSwitchLastTX))
+	}
+	if response.YSFLastTX[0].Callsign != "CALL29" || response.DVSwitchLastTX[29].Callsign != "CALL00" {
+		t.Fatalf("activity rows are not ordered newest first")
+	}
+}
+
 func TestDVSwitchActivityIncludesAllTransmissionModes(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Now().UTC().Truncate(time.Second)
