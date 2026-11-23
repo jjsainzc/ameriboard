@@ -2,7 +2,7 @@
 
 - [x] 1. Los datos titulo y subtitulo del sitio principal no tienen edicion.
 - [x] 2. Si falta alguna fuente (YSF, EchoLink o DVSwitch), ocultar sus tablas y tarjetas sin mostrar errores ni avisos por su ausencia.
-- [ ] 3. La tabla del logs de Echolink esta muy ancha y solo va a contener esos atributos, entonces reducir su ancho, la maxima cantidad de columnas de los atributos pudiera se la suma de las latras de sus atributos, y estos nunca van a set todos juntos. Pendiente de validar en un servidor externo.
+- [x] 3. La tabla del logs de Echolink esta muy ancha y solo va a contener esos atributos, entonces reducir su ancho, la maxima cantidad de columnas de los atributos pudiera se la suma de las latras de sus atributos, y estos nunca van a set todos juntos. Pendiente de validar en un servidor externo.
 - [x] 4. La tabla del DVSwitch no tiene que tener un puente, es actividad por modalidad, y esta columna puede agregarse a la tabla y tambien a la tarjeta y la red no tiene que ser solamente TGIF, se puede poner en el perfil del sitio si se sdesa poner un titulo personalizado a este log, ejemplo de 4 modalidades para la tabla de DVSwitch.
 ```
 I: 2026-11-23 09:56:20.998 DMR, TAG_SET_INFO: src=7400203 rpt=740020306 dst=9 slot=2 cc=1 metadata=HC1LNM

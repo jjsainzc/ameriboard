@@ -222,7 +222,9 @@ recargar el proxy. La configuración automática requiere
 `base_path: /ameriboard`. La regla `/ameriboard/ws` está reservada para un
 WebSocket futuro; Ameriboard todavía no implementa ese endpoint.
 
-## Distribución
+## Distribución 
+
+> **NOTA**: El Makefile fue retirado del repositorio, entonces esta sección no es relevante, se deja por informacón solamente
 
 Con GoReleaser v2, Go, Node.js y npm instalados, `goreleaser release --snapshot
 --clean` genera paquetes `.deb`, archivos `.tar.gz` y `checksums.txt` para
