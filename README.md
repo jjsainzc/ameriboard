@@ -1,6 +1,6 @@
 # Ameriboard
 
-> **NOTA**: En desarrollo, no esta funcional todavia
+> **NOTA**: Primera version Beta funcional
 
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
