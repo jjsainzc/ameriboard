@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -5,7 +6,7 @@ import { ReflectorService, SiteProfile } from '../../core/services/reflector.ser
 
 @Component({
   selector: 'app-reflector-dashboard',
-  imports: [RouterLink],
+  imports: [RouterLink, DatePipe],
   templateUrl: './reflector-dashboard.component.html',
   styleUrl: './reflector-dashboard.components.scss'
 })

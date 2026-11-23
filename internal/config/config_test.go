@@ -8,6 +8,14 @@ import (
 	"testing"
 )
 
+func TestDefaultsUseGenericDashboardHeader(t *testing.T) {
+	cfg := Defaults(func(string) string { return "" })
+	if cfg.Title != "Ameriboard" || cfg.Subtitle != "Panel de monitoreo de YSF, EchoLink y DVSwitch" ||
+		cfg.Badge != "" || cfg.BridgeCall != "" {
+		t.Fatalf("dashboard defaults are not generic: title=%q subtitle=%q", cfg.Title, cfg.Subtitle)
+	}
+}
+
 func TestInitialChoosesFreePortAndMigratesSettings(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

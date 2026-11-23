@@ -28,39 +28,54 @@
         <h1>{{ d.header.title }}</h1>
         <p class="subtitle">{{ d.header.subtitle }}</p>
       </div>
-      <div class="header-badges">
-        <span class="badge badge-primary">{{ d.header.badge }}</span>
-        <span class="badge badge-status">Puente local: {{ d.header.localBridgeStatus }}</span>
-      </div>
+      @if (d.dvSwitchBridges.length) {
+        <div class="bridge-badges" aria-label="Puentes DVSwitch configurados">
+          @for (bridge of d.dvSwitchBridges; track bridge.modeA + ':' + bridge.modeB) {
+            <span class="bridge-badge">Puente configurado: {{ bridge.modeA }} ↔ {{ bridge.modeB }}</span>
+          }
+        </div>
+      }
     </header>
 
     <!-- 4 Tarjetas KPI Superiores -->
+    @if (d.ysfAvailable || d.ysfTrafficAvailable || d.dmrAvailable) {
     <section class="kpi-grid">
+      @if (d.ysfAvailable) {
       <div class="kpi-card border-cyan">
         <span class="kpi-label">CONECTADOS YSF AHORA</span>
-        <span class="kpi-value">{{ d.ysfAvailable ? d.stats.ysfConnectedCount : '—' }}</span>
+        <span class="kpi-value">{{ d.stats.ysfConnectedCount }}</span>
       </div>
+      }
+      @if (d.ysfTrafficAvailable) {
       <div class="kpi-card border-blue">
         <span class="kpi-label">TRANSMISIONES YSF (24H)</span>
-        <span class="kpi-value">{{ d.ysfTrafficAvailable ? d.stats.ysfTx24h : '—' }}</span>
+        <span class="kpi-value">{{ d.stats.ysfTx24h }}</span>
       </div>
+      }
+      @if (d.dmrAvailable) {
       <div class="kpi-card border-emerald">
-        <span class="kpi-label">TRANSMISIONES DMR (24H)</span>
-        <span class="kpi-value">{{ d.dmrAvailable ? d.stats.dmrTx24h : '—' }}</span>
+        <span class="kpi-label">TRANSMISIONES VÍA DVSwitch (24H)</span>
+        <span class="kpi-value">{{ d.stats.dvSwitchTx24h }}</span>
       </div>
+      }
+      @if (d.ysfAvailable && d.dmrAvailable) {
       <div class="kpi-card border-purple">
         <span class="kpi-label">ESTACIONES (24H)</span>
-        <span class="kpi-value">{{ d.ysfAvailable && d.dmrAvailable ? d.stats.stations24h : '—' }}</span>
+        <span class="kpi-value">{{ d.stats.stations24h }}</span>
       </div>
+      }
     </section>
+    }
 
     <!-- Fila Central: Estaciones Conectadas + Últimos Escuchados YSF -->
+    @if (d.ysfAvailable || d.ysfTrafficAvailable) {
     <section class="tables-grid-top">
       <!-- Tabla 1: Estaciones o Gateways Conectados -->
+      @if (d.ysfAvailable) {
       <div class="panel-card">
         <div class="panel-header">
           <h2>Estación o gateway conectado</h2>
-          <span class="count-pill">{{ d.ysfAvailable ? d.ysfConnected.length : '—' }}</span>
+          <span class="count-pill">{{ d.ysfConnected.length }}</span>
         </div>
         <div class="table-responsive">
           <table>
@@ -82,15 +97,17 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="4" class="empty-msg">{{ d.ysfAvailable ? 'No hay estaciones conectadas' : 'Datos YSF no disponibles' }}</td>
+                  <td colspan="4" class="empty-msg">No hay estaciones conectadas</td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
       </div>
+      }
 
       <!-- Tabla 2: Últimos Escuchados YSF -->
+      @if (d.ysfTrafficAvailable) {
       <div class="panel-card">
         <div class="panel-header">
           <h2>Últimos escuchados YSF</h2>
@@ -120,14 +137,16 @@
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6" class="empty-msg">{{ d.ysfTrafficAvailable ? 'Sin actividad reciente en YSF' : 'Datos YSF no disponibles' }}</td>
+                  <td colspan="6" class="empty-msg">Sin actividad reciente en YSF</td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
       </div>
+      }
     </section>
+    }
 
     @if (d.echolinkAvailable) {
     <section class="panel-card full-width" aria-labelledby="echolink-title">
@@ -180,41 +199,89 @@
     </dialog>
     }
 
-    <!-- Fila Inferior: Actividad DMR / TGIF -->
-    <section class="panel-card full-width">
+    @if (d.echolinkAvailable) {
+    <section class="panel-card full-width" aria-labelledby="echolink-history-title">
       <div class="panel-header">
-        <h2>Actividad reciente puente DMR / TGIF</h2>
+        <h2 id="echolink-history-title">Últimos escuchados vía EchoLink</h2>
+        <span class="count-pill">{{ d.echolinkLastHeard.length }}</span>
       </div>
       <div class="table-responsive">
-        <table>
+        <table class="echolink-compact-table">
           <thead>
             <tr>
-              <th>Hace</th>
               <th>Indicativo</th>
-              <th>DMR ID</th>
-              <th>Talkgroup</th>
-              <th>Origen</th>
+              <th>Última desconexión</th>
               <th>Duración</th>
             </tr>
           </thead>
           <tbody>
-            @for (dmr of d.dmrLastHeard; track dmr.time + dmr.callsign) {
+            @for (station of d.echolinkLastHeard; track station.callsign) {
               <tr>
-                <td data-label="Hace" class="mono">{{ dmr.time }}</td>
-                <td data-label="Indicativo" class="callsign">{{ dmr.callsign }}</td>
-                <td data-label="DMR ID" class="mono">{{ dmr.dmrId }}</td>
-                <td data-label="Talkgroup"><span class="tg-badge">{{ dmr.talkgroup }}</span></td>
-                <td data-label="Origen">{{ dmr.source }}</td>
-                <td data-label="Duración" class="mono">{{ dmr.duration }}</td>
+                <td data-label="Indicativo" class="callsign">{{ station.callsign }}</td>
+                <td data-label="Última desconexión" class="mono">{{ station.disconnectedAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+                <td data-label="Duración" class="mono">{{ station.duration }}</td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="empty-msg">{{ d.dmrAvailable ? 'Sin tráfico DMR registrado' : 'Datos DMR no disponibles' }}</td>
+                <td colspan="3" class="empty-msg">Aún no hay desconexiones registradas.</td>
               </tr>
             }
           </tbody>
         </table>
       </div>
     </section>
+    }
+
+    <!-- Actividad registrada por modalidad en el log DVSwitch -->
+    @if (d.dmrAvailable) {
+    <section class="panel-card full-width">
+      <div class="panel-header">
+        <h2>{{ d.dvSwitchTitle }}</h2>
+      </div>
+      <div class="table-responsive">
+        <table class="dvswitch-table">
+          <thead>
+            <tr>
+              <th>Rx Time</th>
+              <th>Mode</th>
+              <th>Callsign</th>
+              <th>Name</th>
+              <th>Target</th>
+              <th>Src</th>
+              <th>Dur(s)</th>
+              <th>Loss</th>
+              <th>BER</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tx of d.dvSwitchLastHeard; track tx.rxTime + tx.callsign + tx.mode + tx.target) {
+              <tr>
+                <td data-label="Rx Time" class="mono">{{ tx.rxTime }}</td>
+                <td data-label="Mode">
+                  <span class="mode-badge"
+                    [class.mode-dmr]="tx.mode === 'DMR'"
+                    [class.mode-nxdn]="tx.mode === 'NXDN'"
+                    [class.mode-ysf]="tx.mode === 'YSF'"
+                    [class.mode-p25]="tx.mode === 'P25'"
+                    [class.mode-d-star]="tx.mode === 'D-Star'">{{ tx.mode }}</span>
+                </td>
+                <td data-label="Callsign" class="callsign">{{ tx.callsign }}</td>
+                <td data-label="Name">{{ tx.name }}</td>
+                <td data-label="Target"><span class="tg-badge">{{ tx.target }}</span></td>
+                <td data-label="Src">{{ tx.source }}</td>
+                <td data-label="Dur(s)" class="mono">{{ tx.duration }}</td>
+                <td data-label="Loss" class="mono">{{ tx.loss }}</td>
+                <td data-label="BER" class="mono">{{ tx.ber }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="9" class="empty-msg">Sin transmisiones recientes en DVSwitch</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    }
   </div>
 }

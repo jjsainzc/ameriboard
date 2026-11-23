@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"syscall"
@@ -74,18 +75,32 @@ func run() error {
 		}
 		return nil
 	}
+	mainSettings, err := store.LoadMainSettings(profiles.MainSettings{
+		Title: cfg.Title, Subtitle: cfg.Subtitle, DVSwitchTitle: profiles.DefaultDVSwitchTitle,
+	})
+	if err != nil {
+		return fmt.Errorf("cargar configuración principal guardada: %w", err)
+	}
+	cfg.Title = mainSettings.Title
+	cfg.Subtitle = mainSettings.Subtitle
 	frontend, err := web.Handler(basePath)
 	if err != nil {
 		return err
 	}
 
 	reflector := controllers.NewReflectorService(controllers.ReflectorConfig{
-		Title: cfg.Title, Subtitle: cfg.Subtitle, Badge: cfg.Badge,
+		Title: cfg.Title, Subtitle: cfg.Subtitle, Badge: cfg.Badge, DVSwitchTitle: mainSettings.DVSwitchTitle,
 		YSFReflector: cfg.YSFReflector, TGIFTalkgroup: cfg.TGIFTalkgroup,
 		BridgeCall: cfg.BridgeCall, YSFLogDir: cfg.YSFLogDir, DMRLogDir: cfg.DMRLogDir,
-		EchoLinkCommand: cfg.EchoLinkCommand,
+		EchoLinkCommand:     cfg.EchoLinkCommand,
+		EchoLinkHistoryFile: filepath.Join(*stateDir, "echolink-history.json"),
+		BridgeConfigDir:     "/opt",
 	})
-	e := newServer(basePath, frontend, reflector, profiles.NewHandler(store))
+	sites := profiles.NewHandler(store)
+	sites.SetMainSettings(mainSettings, func(settings profiles.MainSettings) {
+		reflector.SetDashboardSettings(settings.Title, settings.Subtitle, settings.DVSwitchTitle)
+	})
+	e := newServer(basePath, frontend, reflector, sites)
 	tcp, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("escuchar en %s: %w", cfg.ListenAddr, err)

@@ -33,6 +33,8 @@ type Handler struct {
 	client         *http.Client
 	cookiePath     string
 	mu             sync.Mutex
+	mainSettings   MainSettings
+	applySettings  func(MainSettings)
 	sessions       map[string]session
 	login          *rate.Limiter
 	remoteFailures *rate.Limiter
@@ -48,6 +50,58 @@ var nonPublicNetworks = []netip.Prefix{
 	netip.MustParsePrefix("203.0.113.0/24"),
 	netip.MustParsePrefix("240.0.0.0/4"),
 	netip.MustParsePrefix("2001:db8::/32"),
+}
+
+func (h *Handler) SetMainSettings(settings MainSettings, apply func(MainSettings)) {
+	h.mu.Lock()
+	h.mainSettings = settings
+	h.applySettings = apply
+	h.mu.Unlock()
+}
+
+func (h *Handler) adminSettings(c echo.Context) error {
+	if !h.authenticated(c) {
+		return echo.ErrUnauthorized
+	}
+	h.mu.Lock()
+	settings := h.mainSettings
+	configured := h.applySettings != nil
+	h.mu.Unlock()
+	if !configured {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "La configuración principal no está disponible")
+	}
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, settings)
+}
+
+func (h *Handler) updateAdminSettings(c echo.Context) error {
+	if !adminRequest(c) || !h.authenticated(c) {
+		return echo.ErrUnauthorized
+	}
+	var settings MainSettings
+	if err := decodeBody(c, &settings); err != nil {
+		return echo.ErrBadRequest
+	}
+	h.mu.Lock()
+	apply := h.applySettings
+	if apply == nil {
+		h.mu.Unlock()
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "La configuración principal no está disponible")
+	}
+	saved, err := h.store.SaveMainSettings(settings)
+	if errors.Is(err, errInvalidMainSettings) {
+		h.mu.Unlock()
+		return echo.NewHTTPError(http.StatusBadRequest, "El título es obligatorio; el título admite hasta 200 caracteres y el subtítulo hasta 500")
+	}
+	if err != nil {
+		h.mu.Unlock()
+		return echo.NewHTTPError(http.StatusInternalServerError, "No se pudo guardar la configuración principal").SetInternal(err)
+	}
+	h.mainSettings = saved
+	apply(saved)
+	h.mu.Unlock()
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, saved)
 }
 
 func publicIP(ip netip.Addr) bool {
@@ -109,6 +163,8 @@ func (h *Handler) Register(group *echo.Group, basePath string, status echo.Handl
 	group.POST("/api/admin/setup", h.setupAdmin)
 	group.POST("/api/admin/logout", h.logoutAdmin)
 	group.GET("/api/admin/profiles", h.adminProfiles)
+	group.GET("/api/admin/settings", h.adminSettings)
+	group.PUT("/api/admin/settings", h.updateAdminSettings)
 	group.POST("/api/admin/profiles", h.createProfile)
 	group.PUT("/api/admin/profiles/:id", h.updateProfile)
 	group.DELETE("/api/admin/profiles/:id", h.deleteProfile)
@@ -397,7 +453,8 @@ func (h *Handler) profileStatus(c echo.Context) error {
 		if err != nil || len(data) > 2*1024*1024 || !json.Valid(data) {
 			return echo.NewHTTPError(http.StatusBadGateway, "Respuesta inválida del sitio remoto")
 		}
-		if p.Header != nil && (p.Header.Title != "" || p.Header.Subtitle != "" || p.Header.Badge != "") {
+		if p.Header != nil && (p.Header.Title != "" || p.Header.Subtitle != "" ||
+			p.Header.Badge != "" || p.Header.DVSwitchTitle != "") {
 			data, err = applyHeaderOverrides(data, *p.Header)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusBadGateway, "Cabecera inválida del sitio remoto").SetInternal(err)
@@ -434,6 +491,13 @@ func applyHeaderOverrides(data []byte, overrides ProfileHeader) ([]byte, error) 
 			}
 			header[key] = encoded
 		}
+	}
+	if overrides.DVSwitchTitle != "" {
+		encoded, err := json.Marshal(overrides.DVSwitchTitle)
+		if err != nil {
+			return nil, err
+		}
+		response["dvSwitchTitle"] = encoded
 	}
 	encodedHeader, err := json.Marshal(header)
 	if err != nil {

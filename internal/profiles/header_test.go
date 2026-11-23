@@ -16,19 +16,20 @@ func TestProfileHeaderOverrides(t *testing.T) {
 	store := NewStore(dir)
 	profile, err := store.save(Profile{
 		Name: "Sitio", URL: "https://example.org/ameriboard", Token: strings.Repeat("x", 64),
-		Visible: true, Header: &ProfileHeader{Title: "Título propio", Badge: "Local"},
+		Visible: true, Header: &ProfileHeader{Title: "Título propio", Badge: "Local", DVSwitchTitle: "Actividad del sitio"},
 	}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	stored, err := NewStore(dir).list()
-	if err != nil || len(stored) != 1 || stored[0].Header == nil || stored[0].Header.Title != "Título propio" {
+	if err != nil || len(stored) != 1 || stored[0].Header == nil ||
+		stored[0].Header.Title != "Título propio" || stored[0].Header.DVSwitchTitle != "Actividad del sitio" {
 		t.Fatalf("header not persisted: %+v, %v", stored, err)
 	}
 	h := NewHandler(store)
 	h.client.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(
-			`{"header":{"title":"Original","subtitle":"Remoto","badge":"Antigua","localBridgeStatus":"En línea","lastUpdate":"12:34"},"stats":{"ysfTx24h":42}}`))}, nil
+			`{"header":{"title":"Original","subtitle":"Remoto","badge":"Antigua","localBridgeStatus":"En línea","lastUpdate":"12:34"},"dvSwitchTitle":"Actividad digital vía DVSwitch","stats":{"ysfTx24h":42}}`))}, nil
 	})
 	e := echo.New()
 	h.Register(e.Group(""), "", func(c echo.Context) error { return c.NoContent(200) })
@@ -50,7 +51,9 @@ func TestProfileHeaderOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	if header["title"] != "Título propio" || header["subtitle"] != "Remoto" || header["badge"] != "Local" ||
-		header["localBridgeStatus"] != "En línea" || header["lastUpdate"] != "12:34" || string(result["stats"]) != `{"ysfTx24h":42}` {
+		header["localBridgeStatus"] != "En línea" || header["lastUpdate"] != "12:34" ||
+		string(result["stats"]) != `{"ysfTx24h":42}` ||
+		string(result["dvSwitchTitle"]) != `"Actividad del sitio"` {
 		t.Fatalf("unexpected overridden response: %s", result)
 	}
 	updated, err := store.save(Profile{Name: "Sitio", URL: profile.URL, Visible: true}, profile.ID)
@@ -63,6 +66,10 @@ func TestProfileHeaderOverrides(t *testing.T) {
 	}
 	if err := json.Unmarshal(fetch()["header"], &header); err != nil || header["title"] != "Original" || header["badge"] != "Antigua" {
 		t.Fatalf("empty overrides should use remote values: %+v, %v", header, err)
+	}
+	result = fetch()
+	if string(result["dvSwitchTitle"]) != `"Actividad digital vía DVSwitch"` {
+		t.Fatalf("empty DVSwitch title override should use the remote title: %s", result["dvSwitchTitle"])
 	}
 	if _, err := applyHeaderOverrides([]byte(`{"header":null}`), ProfileHeader{Title: "Test"}); err == nil {
 		t.Fatal("accepted invalid remote header")
@@ -79,12 +86,17 @@ func TestProfileHeaderOverrides(t *testing.T) {
 
 func TestProfileHeaderLength(t *testing.T) {
 	p := Profile{Name: "Sitio", URL: "https://example.org", Token: strings.Repeat("x", 64),
-		Header: &ProfileHeader{Title: strings.Repeat("á", 200)}}
+		Header: &ProfileHeader{Title: strings.Repeat("á", 200), DVSwitchTitle: strings.Repeat("á", 200)}}
 	if err := validProfile(p); err != nil {
 		t.Fatalf("200-character title rejected: %v", err)
 	}
 	p.Header.Title += "á"
 	if err := validProfile(p); err == nil {
 		t.Fatal("title longer than 200 characters accepted")
+	}
+	p.Header.Title = ""
+	p.Header.DVSwitchTitle += "á"
+	if err := validProfile(p); err == nil {
+		t.Fatal("DVSwitch title longer than 200 characters accepted")
 	}
 }

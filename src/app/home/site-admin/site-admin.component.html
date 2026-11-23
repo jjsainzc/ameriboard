@@ -34,6 +34,26 @@
     </form>
   } @else {
     <button type="button" (click)="logout()" [disabled]="busy()">Cerrar sesión</button>
+    <h2>Configuración principal</h2>
+    <p>Estos valores se aplican al dashboard de esta instalación. Los perfiles remotos conservan sus propios valores.</p>
+    @if (!mainSettingsLoaded()) {
+      <p role="status">Cargando configuración principal...</p>
+    } @else {
+      <form [formGroup]="mainSettingsForm" (ngSubmit)="saveMainSettings()">
+        <label for="main-title">Título del sitio
+          <input id="main-title" formControlName="title" maxlength="200" required />
+        </label>
+        <label for="main-subtitle">Subtítulo del sitio
+          <textarea id="main-subtitle" formControlName="subtitle" maxlength="500" rows="3"></textarea>
+        </label>
+        <label for="main-dvswitch-title">Título de actividad DVSwitch
+          <input id="main-dvswitch-title" formControlName="dvSwitchTitle" maxlength="200" required />
+        </label>
+        <div class="actions">
+          <button type="submit" [disabled]="busy() || mainSettingsForm.invalid">Guardar configuración</button>
+        </div>
+      </form>
+    }
     <h2>Sitios configurados</h2>
     @for (site of sites(); track site.id) {
       <div class="site">
@@ -88,6 +108,9 @@
         </label>
         <label for="site-badge">Etiqueta
           <input id="site-badge" formControlName="badge" maxlength="100" />
+        </label>
+        <label for="site-dvswitch-title">Título de actividad DVSwitch
+          <input id="site-dvswitch-title" formControlName="dvSwitchTitle" maxlength="200" />
         </label>
       </fieldset>
       <div class="actions">

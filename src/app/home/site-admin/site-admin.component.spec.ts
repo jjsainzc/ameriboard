@@ -33,9 +33,12 @@ describe('SiteAdminComponent', () => {
     expect(create.request.body).toEqual({ password: '12345678' });
     create.flush(null, { status: 204, statusText: 'No Content' });
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/profiles')).flush([]);
+    http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/settings'))
+      .flush({ title: 'Ameriboard', subtitle: 'Panel de monitoreo de YSF, EchoLink y DVSwitch', dvSwitchTitle: 'Actividad digital vía DVSwitch' });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Administrador creado');
     expect(component.setupForm.value.password).toBe('');
+    expect(component.mainSettingsForm.value.title).toBe('Ameriboard');
     fixture.destroy();
     http.verify();
   });
@@ -50,7 +53,25 @@ describe('SiteAdminComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/admin/settings'))
+      .flush({
+        title: 'Título original', subtitle: 'Subtítulo original', dvSwitchTitle: 'Actividad digital vía DVSwitch'
+      });
     fixture.detectChanges();
+    component.mainSettingsForm.setValue({
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local'
+    });
+    component.saveMainSettings();
+    const settingsUpdate = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/settings'));
+    expect(settingsUpdate.request.body).toEqual({
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local'
+    });
+    expect(settingsUpdate.request.headers.get('X-Ameriboard-Request')).toBe('1');
+    settingsUpdate.flush({
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local'
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Configuración principal guardada');
     expect(fixture.nativeElement.querySelector('#site-name')).toBeNull();
     const addButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
       .find(button => button.textContent?.trim() === 'Agregar sitio');
@@ -60,18 +81,22 @@ describe('SiteAdminComponent', () => {
     expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
     component.siteForm.setValue({
       name: 'Sitio', url: 'https://example.org/ameriboard', password: 'a secure password', visible: false,
-      title: 'Mi reflector', subtitle: '', badge: 'Zona'
+      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota'
     });
     component.save();
     const create = http.expectOne(request => request.method === 'POST' && request.url.endsWith('/api/admin/profiles'));
     expect(create.request.body.visible).toBe(false);
     expect(create.request.body.password).toBe('a secure password');
-    expect(create.request.body.header).toEqual({ title: 'Mi reflector', subtitle: '', badge: 'Zona' });
+    expect(create.request.body.header).toEqual({
+      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota'
+    });
     expect(create.request.headers.get('X-Ameriboard-Request')).toBe('1');
     create.flush({ id: '1', name: 'Sitio', url: 'https://example.org/ameriboard', visible: false });
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/profiles'))
       .flush([{ id: '1', name: 'Sitio', url: 'https://example.org/ameriboard', visible: false,
-        header: { title: 'Mi reflector', subtitle: '', badge: 'Zona' } }]);
+        header: { title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota' } }]);
+    http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/settings'))
+      .flush({ title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#site-name')).toBeNull();
     const editButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
@@ -82,16 +107,20 @@ describe('SiteAdminComponent', () => {
     expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
     expect(component.siteForm.value.password).toBe('');
     expect(component.siteForm.value.title).toBe('Mi reflector');
+    expect(component.siteForm.value.dvSwitchTitle).toBe('Actividad remota');
     component.save();
     const update = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/profiles/1'));
     expect(update.request.body.password).toBe('');
     expect(update.request.body.header.badge).toBe('Zona');
+    expect(update.request.body.header.dvSwitchTitle).toBe('Actividad remota');
     update.flush('error', { status: 500, statusText: 'Error' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
     component.save();
     http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/profiles/1')).flush({});
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/profiles')).flush([]);
+    http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/settings'))
+      .flush({ title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#site-name')).toBeNull();
     fixture.destroy();

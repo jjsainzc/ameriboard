@@ -29,9 +29,18 @@ type Profile struct {
 }
 
 type ProfileHeader struct {
-	Title    string `json:"title"`
-	Subtitle string `json:"subtitle"`
-	Badge    string `json:"badge"`
+	Title         string `json:"title"`
+	Subtitle      string `json:"subtitle"`
+	Badge         string `json:"badge"`
+	DVSwitchTitle string `json:"dvSwitchTitle,omitempty"`
+}
+
+const DefaultDVSwitchTitle = "Actividad digital vía DVSwitch"
+
+type MainSettings struct {
+	Title         string `json:"title"`
+	Subtitle      string `json:"subtitle"`
+	DVSwitchTitle string `json:"dvSwitchTitle"`
 }
 
 type Store struct {
@@ -41,8 +50,63 @@ type Store struct {
 
 var errInvalidProfile = errors.New("perfil inválido")
 var errInvalidPassword = errors.New("contraseña inválida")
+var errInvalidMainSettings = errors.New("configuración principal inválida")
 
 func NewStore(dir string) *Store { return &Store{dir: dir} }
+
+func (s *Store) LoadMainSettings(defaults MainSettings) (MainSettings, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	data, err := os.ReadFile(filepath.Join(s.dir, "dashboard-settings.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return defaults, nil
+	}
+	if err != nil {
+		return MainSettings{}, err
+	}
+	var settings MainSettings
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return MainSettings{}, err
+	}
+	if settings.DVSwitchTitle == "" {
+		settings.DVSwitchTitle = defaults.DVSwitchTitle
+	}
+	if err := validateMainSettings(&settings); err != nil {
+		return MainSettings{}, err
+	}
+	return settings, nil
+}
+
+func (s *Store) SaveMainSettings(settings MainSettings) (MainSettings, error) {
+	if err := validateMainSettings(&settings); err != nil {
+		return MainSettings{}, err
+	}
+	data, err := json.Marshal(settings)
+	if err != nil {
+		return MainSettings{}, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.write("dashboard-settings.json", data); err != nil {
+		return MainSettings{}, err
+	}
+	return settings, nil
+}
+
+func validateMainSettings(settings *MainSettings) error {
+	settings.Title = strings.TrimSpace(settings.Title)
+	settings.Subtitle = strings.TrimSpace(settings.Subtitle)
+	settings.DVSwitchTitle = strings.TrimSpace(settings.DVSwitchTitle)
+	if settings.DVSwitchTitle == "" {
+		settings.DVSwitchTitle = DefaultDVSwitchTitle
+	}
+	if settings.Title == "" || utf8.RuneCountInString(settings.Title) > 200 ||
+		utf8.RuneCountInString(settings.Subtitle) > 500 ||
+		utf8.RuneCountInString(settings.DVSwitchTitle) > 200 {
+		return errInvalidMainSettings
+	}
+	return nil
+}
 
 func randomValue() (string, error) {
 	b := make([]byte, 32)
@@ -195,7 +259,8 @@ func validProfile(p Profile) error {
 		return fmt.Errorf("%w: dirección o contraseña inválida", errInvalidProfile)
 	}
 	if p.Header != nil && (utf8.RuneCountInString(p.Header.Title) > 200 ||
-		utf8.RuneCountInString(p.Header.Subtitle) > 500 || utf8.RuneCountInString(p.Header.Badge) > 100) {
+		utf8.RuneCountInString(p.Header.Subtitle) > 500 || utf8.RuneCountInString(p.Header.Badge) > 100 ||
+		utf8.RuneCountInString(p.Header.DVSwitchTitle) > 200) {
 		return fmt.Errorf("%w: cabecera demasiado larga", errInvalidProfile)
 	}
 	return nil
@@ -235,6 +300,7 @@ func (s *Store) save(p Profile, id string) (Profile, error) {
 		p.Header.Title = strings.TrimSpace(p.Header.Title)
 		p.Header.Subtitle = strings.TrimSpace(p.Header.Subtitle)
 		p.Header.Badge = strings.TrimSpace(p.Header.Badge)
+		p.Header.DVSwitchTitle = strings.TrimSpace(p.Header.DVSwitchTitle)
 	}
 	if err := validProfile(p); err != nil {
 		return Profile{}, err

@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,6 +53,69 @@ func TestEchoLinkCommandOutput(t *testing.T) {
 	}
 }
 
+func TestEchoLinkHistoryPersistsDisconnectAndDuration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "echolink-history.json")
+	start := time.Date(2026, 11, 23, 9, 0, 0, 0, time.FixedZone("EST", -5*60*60))
+	store := newEchoLinkHistoryStore(path)
+	if rows, err := store.Observe([]EchoLinkStation{{User: "KQ4HPI-R"}}, start); err != nil || len(rows) != 0 {
+		t.Fatalf("starting active session: rows=%+v err=%v", rows, err)
+	}
+
+	restartedStore := newEchoLinkHistoryStore(path)
+	disconnectedAt := start.Add(3*time.Minute + 12*time.Second)
+	rows, err := restartedStore.Observe(nil, disconnectedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].Callsign != "KQ4HPI-R" ||
+		!rows[0].DisconnectedAt.Equal(disconnectedAt) || rows[0].Duration != "3m 12s" {
+		t.Fatalf("unexpected last-heard history: %+v", rows)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Fatalf("history file permissions = %04o, want 0600", info.Mode().Perm())
+	}
+}
+
+func TestEchoLinkHistoryIsReturnedByStatusWhenDisconnected(t *testing.T) {
+	dir := t.TempDir()
+	historyPath := filepath.Join(dir, "echolink-history.json")
+	start := time.Now().Add(-10 * time.Minute)
+	store := newEchoLinkHistoryStore(historyPath)
+	if _, err := store.Observe([]EchoLinkStation{{User: "KQ4HPI-R"}}, start); err != nil {
+		t.Fatal(err)
+	}
+	command := filepath.Join(dir, "tlbcmd")
+	script := "#!/bin/sh\nif [ \"$1\" = users ]; then printf '0\\n'; else printf 'Uptime: 1 day\\n'; fi\n"
+	if err := os.WriteFile(command, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewReflectorService(ReflectorConfig{
+		YSFLogDir: dir, DMRLogDir: dir, EchoLinkCommand: command,
+		EchoLinkHistoryFile: historyPath,
+	})
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	if err := service.GetStatus(e.NewContext(httptest.NewRequest("GET", "/", nil), rec)); err != nil {
+		t.Fatal(err)
+	}
+	var response DashboardStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.EchoLinkLastHeardList) != 1 {
+		t.Fatalf("last-heard rows = %+v", response.EchoLinkLastHeardList)
+	}
+	entry := response.EchoLinkLastHeardList[0]
+	if entry.Callsign != "KQ4HPI-R" || entry.Duration == "" || !strings.HasPrefix(entry.Duration, "10m ") {
+		t.Fatalf("unexpected last-heard entry: %+v", entry)
+	}
+}
+
 func TestBridgeTrafficAndLatestFirst(t *testing.T) {
 	dir := t.TempDir()
 	now := time.Now().UTC().Truncate(time.Second)
@@ -69,7 +133,7 @@ func TestBridgeTrafficAndLatestFirst(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "MMDVM_Bridge-"+now.Format("2006-01-02")+".log"), []byte(log), 0600); err != nil {
 		t.Fatal(err)
 	}
-	service := NewReflectorService(ReflectorConfig{YSFLogDir: dir, DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd"})
+	service := NewReflectorService(ReflectorConfig{DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd"})
 	e := echo.New()
 	rec := httptest.NewRecorder()
 	if err := service.GetStatus(e.NewContext(httptest.NewRequest("GET", "/", nil), rec)); err != nil {
@@ -103,6 +167,110 @@ func TestBridgeTrafficAndLatestFirst(t *testing.T) {
 	}
 	if response.YSFLastTX[0].Callsign != "NEW1" || response.DMRLastTX[0].Callsign != "NEW1" {
 		t.Fatalf("active traffic should be first: YSF=%+v DMR=%+v", response.YSFLastTX, response.DMRLastTX)
+	}
+}
+
+func TestDVSwitchActivityIncludesAllTransmissionModes(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
+	stamp := func(d time.Duration) string { return now.Add(d).Format("2006-01-02 15:04:05.000") }
+	log := fmt.Sprintf(
+		"I: %s DMR, Begin TX: src=7400203 rpt=740020306 dst=9 slot=2 cc=1 metadata=HC1LNM\n"+
+			"M: %s DMR, TX state = OFF, DMR frame count was 46 frames\n"+
+			"I: %s NXDN, Begin TX: src=7400203 rpt=740020306 dst=8465 slot=2 cc=1 metadata=HC1LNM\n"+
+			"M: %s NXDN, TX state = OFF\n"+
+			"M: %s NXDN, received RF end of transmission, 2.6 seconds, BER: 0.0%%\n"+
+			"I: %s YSF, Begin TX: src=7400203 rpt=740020306 dst=74001 slot=2 cc=1 metadata=HC1LNM\n"+
+			"M: %s YSF, TX state = OFF\n"+
+			"I: %s P25, Begin TX: src=7400203 rpt=740020306 dst=740 slot=2 cc=1 metadata=HC1LNM\n"+
+			"M: %s P25, TX state = OFF\n"+
+			"I: %s D-Star, Begin TX: src=7400203 rpt=740020306 dst=CQCQCQ slot=2 cc=1 metadata=HC1LNM\n"+
+			"M: %s D-Star, TX state = OFF\n",
+		stamp(-40*time.Second), stamp(-37*time.Second), stamp(-30*time.Second), stamp(-27*time.Second),
+		stamp(-26*time.Second), stamp(-20*time.Second), stamp(-18*time.Second), stamp(-10*time.Second),
+		stamp(-7*time.Second), stamp(-6*time.Second), stamp(-3*time.Second),
+	)
+	if err := os.WriteFile(filepath.Join(dir, "MMDVM_Bridge-"+now.Format("2006-01-02")+".log"), []byte(log), 0600); err != nil {
+		t.Fatal(err)
+	}
+	service := NewReflectorService(ReflectorConfig{DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd"})
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	if err := service.GetStatus(e.NewContext(httptest.NewRequest("GET", "/", nil), rec)); err != nil {
+		t.Fatal(err)
+	}
+	var response DashboardStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	wantModes := []string{"D-Star", "P25", "YSF", "NXDN", "DMR"}
+	if len(response.DVSwitchLastTX) != len(wantModes) {
+		t.Fatalf("DVSwitch rows = %+v", response.DVSwitchLastTX)
+	}
+	for i, mode := range wantModes {
+		entry := response.DVSwitchLastTX[i]
+		if entry.Mode != mode || entry.DMRID != "7400203" || entry.Callsign != "HC1LNM" ||
+			entry.Target == "" || entry.RxTime == "" || entry.Duration == "—" {
+			t.Fatalf("DVSwitch row %d = %+v, want mode %s with timestamp, target, source ID and duration", i, entry, mode)
+		}
+	}
+	if response.DVSwitchLastTX[3].Duration != "2.6" || response.DVSwitchLastTX[3].BER != "0.0%" ||
+		response.DVSwitchLastTX[0].Target != "CQCQCQ" {
+		t.Fatalf("DVSwitch detail columns were not extracted: %+v", response.DVSwitchLastTX)
+	}
+	if len(response.DMRLastTX) != 1 || response.DMRLastTX[0].Mode != "DMR" || response.Stats.DMRTx24h != 1 ||
+		response.Stats.DVSwitchTx24h != len(wantModes) {
+		t.Fatalf("DMR and DVSwitch statistics are inconsistent: rows=%+v stats=%+v", response.DMRLastTX, response.Stats)
+	}
+}
+
+func TestDVSwitchNetworkRowsUseBridgeLogMetrics(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
+	stamp := func(d time.Duration) string { return now.Add(d).Format("2006-01-02 15:04:05.000") }
+	log := fmt.Sprintf(
+		"M: %s D-Star, received network header from HC1LNM  /INFO to CQCQCQ\n"+
+			"M: %s D-Star, received network end of transmission, 2.5 seconds, 0%% packet loss, BER: 0.0%%\n"+
+			"M: %s NXDN, received network transmission from 9999 to TG 8465\n"+
+			"M: %s NXDN, received network end of transmission, 4.3 seconds\n"+
+			"M: %s YSF, received network data from HC1LNM-RPT to ALL at HC1LNM\n"+
+			"M: %s YSF, received network end of transmission, 0.6 seconds, 0%% packet loss, BER: 0.0%%\n",
+		stamp(-30*time.Second), stamp(-27*time.Second), stamp(-20*time.Second), stamp(-16*time.Second),
+		stamp(-10*time.Second), stamp(-9*time.Second),
+	)
+	if err := os.WriteFile(filepath.Join(dir, "MMDVM_Bridge-"+now.Format("2006-01-02")+".log"), []byte(log), 0600); err != nil {
+		t.Fatal(err)
+	}
+	service := NewReflectorService(ReflectorConfig{DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd"})
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	if err := service.GetStatus(e.NewContext(httptest.NewRequest("GET", "/", nil), rec)); err != nil {
+		t.Fatal(err)
+	}
+	var response DashboardStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.DVSwitchLastTX) != 3 {
+		t.Fatalf("DVSwitch network rows = %+v", response.DVSwitchLastTX)
+	}
+	want := []struct {
+		mode, callsign, target, duration, loss, ber string
+	}{
+		{"YSF", "HC1LNM-RPT", "ALL at HC1LNM", "0.6", "0%", "0.0%"},
+		{"NXDN", "9999", "TG 8465", "4.3", "—", "—"},
+		{"D-Star", "HC1LNM", "CQCQCQ", "2.5", "0%", "0.0%"},
+	}
+	for i, expected := range want {
+		entry := response.DVSwitchLastTX[i]
+		if entry.Mode != expected.mode || entry.Callsign != expected.callsign || entry.Target != expected.target ||
+			entry.Duration != expected.duration || entry.Source != "Net" ||
+			entry.Loss != expected.loss || entry.BER != expected.ber {
+			t.Fatalf("DVSwitch row %d = %+v, want %+v", i, entry, expected)
+		}
+	}
+	if response.Stats.DVSwitchTx24h != len(want) {
+		t.Fatalf("DVSwitch 24h count = %d, want %d", response.Stats.DVSwitchTx24h, len(want))
 	}
 }
 
@@ -143,7 +311,9 @@ func TestYSFLinkedSnapshotWithPaddedAndFullWidthCallsigns(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "YSFReflector-"+now.Format("2006-01-02")+".log"), []byte(log), 0600); err != nil {
 		t.Fatal(err)
 	}
-	service := NewReflectorService(ReflectorConfig{YSFLogDir: dir, DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd"})
+	service := NewReflectorService(ReflectorConfig{
+		YSFLogDir: dir, DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd", BridgeCall: "HC1LNM",
+	})
 	e := echo.New()
 	rec := httptest.NewRecorder()
 	if err := service.GetStatus(e.NewContext(httptest.NewRequest("GET", "/", nil), rec)); err != nil {
@@ -161,6 +331,12 @@ func TestYSFLinkedSnapshotWithPaddedAndFullWidthCallsigns(t *testing.T) {
 		if response.YSFConnectedList[i].Callsign != call {
 			t.Errorf("entry %d: got %q, want %q", i, response.YSFConnectedList[i].Callsign, call)
 		}
+		if response.YSFConnectedList[i].Type != "Estación o gateway" {
+			t.Errorf("entry %d has inferred type %q", i, response.YSFConnectedList[i].Type)
+		}
+	}
+	if response.Header.LocalBridgeStatus != "—" {
+		t.Fatalf("local bridge status = %q, want unknown", response.Header.LocalBridgeStatus)
 	}
 }
 

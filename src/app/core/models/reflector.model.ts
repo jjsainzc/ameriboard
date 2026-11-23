@@ -23,10 +23,33 @@ export interface DmrActivity {
   duration: string;
 }
 
+export interface DVSwitchActivity {
+  rxTime: string;
+  mode: string;
+  callsign: string;
+  name: string;
+  target: string;
+  source: string;
+  duration: string;
+  loss: string;
+  ber: string;
+}
+
 export interface EchoLinkStation {
   number: string;
   user: string;
   attribute: string;
+}
+
+export interface EchoLinkLastHeard {
+  callsign: string;
+  disconnectedAt: string;
+  duration: string;
+}
+
+export interface DVSwitchBridge {
+  modeA: string;
+  modeB: string;
 }
 
 export interface ReflectorDashboardData {
@@ -42,15 +65,20 @@ export interface ReflectorDashboardData {
     localBridgeStatus: string;
     lastUpdate: string;
   };
+  dvSwitchTitle: string;
+  dvSwitchBridges: DVSwitchBridge[];
   stats: {
     ysfConnectedCount: number;
     ysfTx24h: number;
     dmrTx24h: number;
+    dvSwitchTx24h: number;
     stations24h: number;
   };
   ysfConnected: YsfStation[];
   ysfLastHeard: YsfActivity[];
   dmrLastHeard: DmrActivity[];
+  dvSwitchLastHeard: DVSwitchActivity[];
   echolinkConnected: EchoLinkStation[];
+  echolinkLastHeard: EchoLinkLastHeard[];
   echolinkUptime: string;
 }

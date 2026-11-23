@@ -105,16 +105,29 @@ func TestReflectorRouteReportsMissingLogDirectory(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &data); err != nil {
 		t.Fatal(err)
 	}
-	if response.Code != http.StatusOK || data.YSFAvailable || !data.DMRAvailable || len(data.Warnings) == 0 {
+	if response.Code != http.StatusOK || data.YSFAvailable || !data.DMRAvailable || len(data.Warnings) != 0 {
 		t.Fatalf("expected partial response, got %d: %s", response.Code, response.Body.String())
 	}
 	if data.EchoLinkAvailable {
 		t.Fatal("EchoLink should be unavailable")
 	}
-	for _, warning := range data.Warnings {
-		if strings.Contains(warning, "EchoLink") {
-			t.Fatalf("EchoLink should not add a dashboard warning: %q", warning)
-		}
+}
+
+func TestReflectorRouteMissingSourcesAreSilent(t *testing.T) {
+	dir := t.TempDir()
+	service := controllers.NewReflectorService(controllers.ReflectorConfig{
+		YSFLogDir: dir, DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd",
+	})
+	server := newServer("/ameriboard", http.NotFoundHandler(), service, profiles.NewHandler(profiles.NewStore(t.TempDir())))
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/ameriboard/api/reflector-status", nil))
+	var data controllers.DashboardStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &data); err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != http.StatusOK || data.YSFAvailable || data.YSFTrafficAvailable ||
+		data.DMRAvailable || data.EchoLinkAvailable || len(data.Warnings) != 0 {
+		t.Fatalf("expected unavailable sources without warnings, got %d: %s", response.Code, response.Body.String())
 	}
 }
 
@@ -144,7 +157,7 @@ func TestReflectorRouteReadsLogs(t *testing.T) {
 		!strings.HasPrefix(data.Header.Subtitle, "YSF 42, TG 77") || data.Stats.YSFConnectedNow != 2 ||
 		len(data.YSFConnectedList) != 2 || data.YSFConnectedList[0].Callsign != "TEST1" ||
 		data.YSFConnectedList[0].IP != "192.0.2.1" || data.YSFConnectedList[1].IP != "127.0.0.1" ||
-		data.YSFConnectedList[1].Type != "Puente local" {
+		data.YSFConnectedList[1].Type != "Estación o gateway" || data.Header.LocalBridgeStatus != "—" {
 		t.Fatalf("unexpected status response: %d %s", response.Code, response.Body.String())
 	}
 }

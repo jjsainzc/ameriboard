@@ -31,10 +31,10 @@ JSON, ejemplo
 
 {
   "header": {
-    "title": "CONFERENCIA AMERINET",
-    "subtitle": "Reflector YSF #74001 • Puente TGIF DMR TG 7401",
-    "badge": "Reflector + TGIF DMR",
-    "localBridgeStatus": "Activo • Enlazado",
+    "title": "Ameriboard",
+    "subtitle": "Panel de monitoreo de YSF, EchoLink y DVSwitch",
+    "badge": "",
+    "localBridgeStatus": "—",
     "lastUpdate": "2026-11-22T09:14:00-05:00"
   },
   "stats": {
@@ -83,24 +83,40 @@ JSON, ejemplo
 */
 
 type ReflectorConfig struct {
-	Title           string
-	Subtitle        string
-	Badge           string
-	YSFReflector    string
-	TGIFTalkgroup   string
-	BridgeCall      string
-	YSFLogDir       string
-	DMRLogDir       string
-	EchoLinkCommand string
+	Title               string
+	Subtitle            string
+	Badge               string
+	DVSwitchTitle       string
+	YSFReflector        string
+	TGIFTalkgroup       string
+	BridgeCall          string
+	YSFLogDir           string
+	DMRLogDir           string
+	EchoLinkCommand     string
+	EchoLinkHistoryFile string
+	BridgeConfigDir     string
 }
 
 type ReflectorService struct {
-	mu  sync.RWMutex
-	cfg ReflectorConfig
+	mu              sync.RWMutex
+	cfg             ReflectorConfig
+	echoLinkHistory *echoLinkHistoryStore
 }
 
 func NewReflectorService(cfg ReflectorConfig) *ReflectorService {
-	return &ReflectorService{cfg: cfg}
+	service := &ReflectorService{cfg: cfg}
+	if cfg.EchoLinkHistoryFile != "" {
+		service.echoLinkHistory = newEchoLinkHistoryStore(cfg.EchoLinkHistoryFile)
+	}
+	return service
+}
+
+func (s *ReflectorService) SetDashboardSettings(title, subtitle, dvSwitchTitle string) {
+	s.mu.Lock()
+	s.cfg.Title = title
+	s.cfg.Subtitle = subtitle
+	s.cfg.DVSwitchTitle = dvSwitchTitle
+	s.mu.Unlock()
 }
 
 // --- Estructuras JSON ---
@@ -117,6 +133,7 @@ type StatsInfo struct {
 	YSFConnectedNow int `json:"ysfConnectedNow"`
 	YSFTx24h        int `json:"ysfTx24h"`
 	DMRTx24h        int `json:"dmrTx24h"`
+	DVSwitchTx24h   int `json:"dvSwitchTx24h"`
 	Stations24h     int `json:"stations24h"`
 }
 
@@ -124,6 +141,12 @@ type TXEntry struct {
 	Callsign  string `json:"callsign"`
 	Duration  string `json:"duration"`
 	Ago       string `json:"ago"`
+	Mode      string `json:"mode,omitempty"`
+	RxTime    string `json:"rxTime,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Source    string `json:"source,omitempty"`
+	Loss      string `json:"loss,omitempty"`
+	BER       string `json:"ber,omitempty"`
 	Target    string `json:"target,omitempty"`
 	Gateway   string `json:"gateway,omitempty"`
 	DMRID     string `json:"dmrId,omitempty"`
@@ -168,15 +191,19 @@ type CombinedActivity24h struct {
 
 type DashboardStatusResponse struct {
 	Header                HeaderInfo            `json:"header"`
+	DVSwitchTitle         string                `json:"dvSwitchTitle"`
 	Stats                 StatsInfo             `json:"stats"`
 	YSFLastTX             []TXEntry             `json:"ysfLastTx"`
 	DMRLastTX             []TXEntry             `json:"dmrLastTx"`
+	DVSwitchLastTX        []TXEntry             `json:"dvSwitchLastTx"`
 	DMRActive24h          []DMRActive24h        `json:"dmrActive24h"`
 	YSFStations24h        []YSFStation24h       `json:"ysfStations24h"`
 	YSFConnectedList      []YSFConnectedNow     `json:"ysfConnectedList"`
 	Combined24h           []CombinedActivity24h `json:"combined24h"`
 	EchoLinkConnectedList []EchoLinkStation     `json:"echolinkConnectedList"`
+	EchoLinkLastHeardList []EchoLinkLastHeard   `json:"echolinkLastHeard"`
 	EchoLinkUptime        string                `json:"echolinkUptime"`
+	DVSwitchBridges       []DVSwitchBridge      `json:"dvSwitchBridges"`
 	YSFAvailable          bool                  `json:"ysfAvailable"`
 	YSFTrafficAvailable   bool                  `json:"ysfTrafficAvailable"`
 	DMRAvailable          bool                  `json:"dmrAvailable"`
@@ -200,9 +227,17 @@ var (
 	mmdvmYsfCallRe   = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+YSF,\s+received network data from\s+([A-Z0-9\-/]+)`)
 	mmdvmYsfDataRe   = regexp.MustCompile(`YSF,\s+received network data from\s+[A-Z0-9\-/]+\s+to\s+([A-Z0-9\-/]+)\s+at\s+([A-Z0-9\-/]+)`)
 
-	// MMDVM_Bridge: inicio y fin de transmisión DMR
-	dmrBeginTxRe = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+DMR,\s+Begin TX:.*?src=(\d+).*?dst=(\d+).*?metadata=([A-Z0-9\-/]+)`)
-	dmrTxOffRe   = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+DMR,\s+TX state = OFF,\s+DMR frame count was\s+(\d+)\s+frames`)
+	// MMDVM_Bridge: inicio y fin de transmisión en los modos de DVSwitch.
+	dvSwitchBeginTxRe       = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9-]*),\s+Begin TX:.*?src=(\d+).*?dst=([A-Z0-9\-/]+).*?metadata=([A-Z0-9\-/]+)`)
+	dvSwitchTxOffRe         = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9-]*),\s+TX state = OFF(?:,\s+DMR frame count was\s+(\d+)\s+frames)?`)
+	dvSwitchNetworkHeaderRe = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9-]*),\s+received network header from\s+([A-Z0-9-]+)(?:\s+/[A-Z]+)?\s+to\s+([A-Z0-9/]+)`)
+	dvSwitchNetworkTXRe     = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9-]*),\s+received network transmission from\s+([A-Z0-9-]+)\s+to TG\s+([A-Z0-9-]+)`)
+	dvSwitchNetworkDataRe   = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9-]*),\s+received network data from\s+([A-Z0-9-]+)\s+to\s+([A-Z0-9-]+)\s+at\s+([A-Z0-9-]+)`)
+	dvSwitchNetworkEndRe    = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9-]*),\s+received network end of transmission`)
+	dvSwitchMetricModeRe    = regexp.MustCompile(`^[MI]:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+([A-Za-z][A-Za-z0-9-]*),`)
+	durationMetricRe        = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*seconds`)
+	lossMetricRe            = regexp.MustCompile(`(\d+(?:\.\d+)?)%\s*packet loss`)
+	berMetricRe             = regexp.MustCompile(`BER:\s*(\d+(?:\.\d+)?)%`)
 )
 
 type activeYSFTx struct {
@@ -212,10 +247,18 @@ type activeYSFTx struct {
 	start    time.Time
 }
 
-type activeDMRTx struct {
+type activeDVSwitchTx struct {
+	mode     string
 	callsign string
 	srcID    string
 	dstTG    string
+	start    time.Time
+}
+
+type activeDVSwitchNetworkTx struct {
+	mode     string
+	callsign string
+	target   string
 	start    time.Time
 }
 
@@ -244,6 +287,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 
 	var ysfTX []TXEntry
 	var dmrTX []TXEntry
+	var dvSwitchTX []TXEntry
 	var combined []CombinedActivity24h
 	var pendingYSFTx *activeYSFTx
 	ysfAvailable, dmrAvailable := true, true
@@ -253,11 +297,12 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	ysfFiles, err := candidateLogFiles(cfg.YSFLogDir, "YSFReflector", now)
 	if err != nil {
 		ysfAvailable = false
-		warnings = append(warnings, "No se pueden leer los logs YSF")
-		c.Logger().Errorf("No se pueden leer los logs YSF: %v", err)
+		if !errors.Is(err, os.ErrNotExist) {
+			warnings = append(warnings, "No se pueden leer los logs YSF")
+			c.Logger().Errorf("No se pueden leer los logs YSF: %v", err)
+		}
 	} else if len(ysfFiles) == 0 {
 		ysfAvailable = false
-		warnings = append(warnings, "No se encontraron logs YSF recientes")
 	}
 	for _, path := range ysfFiles {
 		f, err := os.Open(path)
@@ -287,18 +332,13 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 					call := strings.TrimSpace(m[2])
 					addr := strings.TrimSpace(m[3])
 
-					connType := "Estación o gateway"
-					if strings.HasPrefix(addr, "127.0.0.1:") || (cfg.BridgeCall != "" && strings.EqualFold(call, cfg.BridgeCall)) {
-						connType = "Puente local"
-					}
-
 					key := call + "@" + addr
 					if _, exists := seenInSnapshot[key]; !exists {
 						seenInSnapshot[key] = struct{}{}
 						currentSnapshotList = append(currentSnapshotList, YSFConnectedNow{
 							Callsign: call,
 							IP:       m[4],
-							Type:     connType,
+							Type:     "Estación o gateway",
 							Since:    currentSnapshotTime.Format("03:04 PM"),
 						})
 					}
@@ -357,15 +397,17 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	dmrFiles, err := candidateLogFilesAnyPrefix(cfg.DMRLogDir, []string{"MMDVM_Bridge", "mmdvm_bridge"}, now)
 	if err != nil {
 		dmrAvailable = false
-		warnings = append(warnings, "No se pueden leer los logs DMR")
-		c.Logger().Errorf("No se pueden leer los logs DMR: %v", err)
+		if !errors.Is(err, os.ErrNotExist) {
+			warnings = append(warnings, "No se pueden leer los logs DVSwitch")
+			c.Logger().Errorf("No se pueden leer los logs DVSwitch: %v", err)
+		}
 	} else if len(dmrFiles) == 0 {
 		dmrAvailable = false
-		warnings = append(warnings, "No se encontraron logs DMR recientes")
 	}
 	var lastYSFTime time.Time
 	var pendingNetworkYSF *activeYSFTx
-	var pendingDMRTx *activeDMRTx
+	var pendingDVSwitchTx *activeDVSwitchTx
+	var pendingDVSwitchNetworkTx *activeDVSwitchNetworkTx
 
 	for _, path := range dmrFiles {
 		f, err := os.Open(path)
@@ -378,6 +420,86 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := strings.TrimRight(scanner.Text(), "\r\n")
+
+			if m := dvSwitchNetworkHeaderRe.FindStringSubmatch(line); len(m) == 5 {
+				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
+					pendingDVSwitchNetworkTx = &activeDVSwitchNetworkTx{
+						mode: m[2], callsign: m[3], target: m[4], start: ts,
+					}
+				}
+				continue
+			}
+			if m := dvSwitchNetworkTXRe.FindStringSubmatch(line); len(m) == 5 {
+				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
+					pendingDVSwitchNetworkTx = &activeDVSwitchNetworkTx{
+						mode: m[2], callsign: m[3], target: "TG " + m[4], start: ts,
+					}
+				}
+				continue
+			}
+			if m := dvSwitchNetworkDataRe.FindStringSubmatch(line); len(m) == 6 {
+				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
+					pendingDVSwitchNetworkTx = &activeDVSwitchNetworkTx{
+						mode: m[2], callsign: m[3], target: m[4] + " at " + m[5], start: ts,
+					}
+				}
+			}
+			if m := dvSwitchNetworkEndRe.FindStringSubmatch(line); len(m) == 3 &&
+				pendingDVSwitchNetworkTx != nil && pendingDVSwitchNetworkTx.mode == m[2] {
+				if ts, err := parseLogTime(m[1], now.Location()); err == nil && !ts.Before(cutoff24h) {
+					duration := durationMetricRe.FindStringSubmatch(line)
+					loss := lossMetricRe.FindStringSubmatch(line)
+					ber := berMetricRe.FindStringSubmatch(line)
+					durationValue := "—"
+					if len(duration) == 2 {
+						durationValue = duration[1]
+					} else if elapsed := ts.Sub(pendingDVSwitchNetworkTx.start).Seconds(); elapsed > 0 {
+						durationValue = fmt.Sprintf("%.1f", elapsed)
+					}
+					lossValue, berValue := "—", "—"
+					if len(loss) == 2 {
+						lossValue = loss[1] + "%"
+					}
+					if len(ber) == 2 {
+						berValue = ber[1] + "%"
+					}
+					dvSwitchTX = append(dvSwitchTX, TXEntry{
+						Callsign: pendingDVSwitchNetworkTx.callsign, Duration: durationValue,
+						Ago: formatAgo(now.Sub(pendingDVSwitchNetworkTx.start)), Mode: pendingDVSwitchNetworkTx.mode,
+						RxTime: pendingDVSwitchNetworkTx.start.Format("01-02 15:04:05"),
+						Name:   "—", Source: "Net", Loss: lossValue, BER: berValue,
+						Target: pendingDVSwitchNetworkTx.target, timestamp: pendingDVSwitchNetworkTx.start,
+					})
+				}
+				pendingDVSwitchNetworkTx = nil
+			}
+
+			if m := dvSwitchMetricModeRe.FindStringSubmatch(line); len(m) == 3 {
+				duration := durationMetricRe.FindStringSubmatch(line)
+				loss := lossMetricRe.FindStringSubmatch(line)
+				ber := berMetricRe.FindStringSubmatch(line)
+				if len(duration) == 2 || len(loss) == 2 || len(ber) == 2 {
+					if ts, err := parseLogTime(m[1], now.Location()); err == nil {
+						for i := len(dvSwitchTX) - 1; i >= 0; i-- {
+							entry := &dvSwitchTX[i]
+							elapsed := ts.Sub(entry.timestamp)
+							if entry.Mode != m[2] || elapsed < 0 || elapsed > 30*time.Second {
+								continue
+							}
+							if len(duration) == 2 {
+								entry.Duration = duration[1]
+							}
+							if len(loss) == 2 {
+								entry.Loss = loss[1] + "%"
+							}
+							if len(ber) == 2 {
+								entry.BER = ber[1] + "%"
+							}
+							break
+						}
+					}
+				}
+			}
 
 			// Registrar último indicativo YSF visto en el puente
 			if m := mmdvmYsfCallRe.FindStringSubmatch(line); len(m) == 3 {
@@ -424,74 +546,77 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				continue
 			}
 
-			// Inicio de transmisión DMR en MMDVM_Bridge
-			if m := dmrBeginTxRe.FindStringSubmatch(line); len(m) == 5 {
+			// Inicio de transmisión de cualquiera de las modalidades de DVSwitch.
+			if m := dvSwitchBeginTxRe.FindStringSubmatch(line); len(m) == 6 {
 				ts, err := parseLogTime(m[1], now.Location())
 				if err != nil {
 					continue
 				}
-				call := strings.TrimSpace(m[4])
+				call := strings.TrimSpace(m[5])
 				if call == "" || call == "N0CALL" {
-					call = strings.TrimSpace(m[2])
+					call = strings.TrimSpace(m[3])
 				}
-				pendingDMRTx = &activeDMRTx{
+				pendingDVSwitchTx = &activeDVSwitchTx{
+					mode:     m[2],
 					callsign: call,
-					srcID:    strings.TrimSpace(m[2]),
-					dstTG:    strings.TrimSpace(m[3]),
+					srcID:    strings.TrimSpace(m[3]),
+					dstTG:    strings.TrimSpace(m[4]),
 					start:    ts,
 				}
 				continue
 			}
 
-			// Fin de transmisión DMR en MMDVM_Bridge
-			if m := dmrTxOffRe.FindStringSubmatch(line); len(m) == 3 {
+			// Fin de transmisión de cualquiera de las modalidades de DVSwitch.
+			if m := dvSwitchTxOffRe.FindStringSubmatch(line); len(m) == 4 {
 				ts, err := parseLogTime(m[1], now.Location())
 				if err != nil || ts.Before(cutoff24h) {
-					pendingDMRTx = nil
+					pendingDVSwitchTx = nil
 					continue
 				}
-				frames, _ := strconv.ParseFloat(m[2], 64)
-				// Cada frame DMR equivale a 60 ms (0.06 s)
+				if pendingDVSwitchTx == nil || pendingDVSwitchTx.mode != m[2] {
+					continue
+				}
+				frames, _ := strconv.ParseFloat(m[3], 64)
 				secs := frames * 0.06
-
-				call := cfg.BridgeCall
-				tg := cfg.TGIFTalkgroup
-				if pendingDMRTx != nil {
-					call = pendingDMRTx.callsign
-					pendingSrc := pendingDMRTx.srcID
-					if pendingDMRTx.dstTG != "" {
-						tg = pendingDMRTx.dstTG
-					}
-					if !pendingDMRTx.start.IsZero() && ts.Sub(pendingDMRTx.start) > 0 && ts.Sub(pendingDMRTx.start) < 10*time.Minute {
-						secs = ts.Sub(pendingDMRTx.start).Seconds()
-					}
-					pendingDMRTx = nil
-					if secs <= 0 {
-						secs = frames * 0.06
-					}
-					durStr := formatDurationSecs(secs)
-					agoStr := formatAgo(now.Sub(ts))
-
-					dmrTX = append(dmrTX, TXEntry{
-						Callsign:  call,
-						Duration:  durStr,
-						Ago:       agoStr,
-						DMRID:     pendingSrc,
-						Talkgroup: tg,
-						timestamp: ts,
-					})
-					combined = append(combined, CombinedActivity24h{
-						Time:     ts.Format("15:04:05"),
-						Mode:     "DMR",
-						Callsign: call,
-						Duration: durStr,
-						Detail:   "TG " + tg,
-					})
-
-					agg, ok := dmr24hMap[call]
+				if elapsed := ts.Sub(pendingDVSwitchTx.start).Seconds(); elapsed > 0 && elapsed < 10*60 {
+					secs = elapsed
+				}
+				if secs <= 0 {
+					secs = frames * 0.06
+				}
+				duration := formatDurationSecs(secs)
+				target := formatDVSwitchTarget(pendingDVSwitchTx.mode, pendingDVSwitchTx.dstTG, pendingDVSwitchTx.callsign)
+				dvSwitchEntry := TXEntry{
+					Callsign:  pendingDVSwitchTx.callsign,
+					Duration:  fmt.Sprintf("%.1f", secs),
+					Ago:       formatAgo(now.Sub(ts)),
+					Mode:      pendingDVSwitchTx.mode,
+					RxTime:    ts.Format("01-02 15:04:05"),
+					Name:      "—",
+					Source:    "—",
+					Loss:      "—",
+					BER:       "—",
+					DMRID:     pendingDVSwitchTx.srcID,
+					Target:    target,
+					timestamp: ts,
+				}
+				dvSwitchTX = append(dvSwitchTX, dvSwitchEntry)
+				combined = append(combined, CombinedActivity24h{
+					Time:     ts.Format("15:04:05"),
+					Mode:     pendingDVSwitchTx.mode,
+					Callsign: pendingDVSwitchTx.callsign,
+					Duration: duration,
+					Detail:   target,
+				})
+				if pendingDVSwitchTx.mode == "DMR" {
+					dmrEntry := dvSwitchEntry
+					dmrEntry.Duration = duration
+					dmrEntry.Talkgroup = pendingDVSwitchTx.dstTG
+					dmrTX = append(dmrTX, dmrEntry)
+					agg, ok := dmr24hMap[pendingDVSwitchTx.callsign]
 					if !ok {
-						agg = &dmrAgg{callsign: call}
-						dmr24hMap[call] = agg
+						agg = &dmrAgg{callsign: pendingDVSwitchTx.callsign}
+						dmr24hMap[pendingDVSwitchTx.callsign] = agg
 					}
 					agg.times++
 					agg.totalSecs += secs
@@ -499,6 +624,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 						agg.lastSeen = ts
 					}
 				}
+				pendingDVSwitchTx = nil
 				continue
 			}
 		}
@@ -519,21 +645,35 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		ysfTX = append(ysfTX, TXEntry{Callsign: pendingYSFTx.callsign, Duration: "—", Ago: formatAgo(now.Sub(pendingYSFTx.start)), Target: pendingYSFTx.target, Gateway: pendingYSFTx.gateway, timestamp: pendingYSFTx.start})
 		ensureYSFStation(stations24hMap, pendingYSFTx.callsign)
 	}
-	if pendingDMRTx != nil && !pendingDMRTx.start.Before(cutoff24h) {
-		dmrTX = append(dmrTX, TXEntry{
-			Callsign: pendingDMRTx.callsign, Duration: "—", Ago: formatAgo(now.Sub(pendingDMRTx.start)),
-			DMRID: pendingDMRTx.srcID, Talkgroup: pendingDMRTx.dstTG, timestamp: pendingDMRTx.start,
+	if pendingDVSwitchTx != nil && !pendingDVSwitchTx.start.Before(cutoff24h) {
+		target := formatDVSwitchTarget(pendingDVSwitchTx.mode, pendingDVSwitchTx.dstTG, pendingDVSwitchTx.callsign)
+		entry := TXEntry{
+			Callsign: pendingDVSwitchTx.callsign, Duration: "—", Ago: formatAgo(now.Sub(pendingDVSwitchTx.start)),
+			Mode: pendingDVSwitchTx.mode, RxTime: pendingDVSwitchTx.start.Format("01-02 15:04:05"),
+			Name: "—", Source: "—", Loss: "—", BER: "—", DMRID: pendingDVSwitchTx.srcID,
+			Target:    target,
+			timestamp: pendingDVSwitchTx.start,
+		}
+		dvSwitchTX = append(dvSwitchTX, entry)
+		if pendingDVSwitchTx.mode == "DMR" {
+			entry.Talkgroup = pendingDVSwitchTx.dstTG
+			dmrTX = append(dmrTX, entry)
+		}
+	}
+	if pendingDVSwitchNetworkTx != nil && !pendingDVSwitchNetworkTx.start.Before(cutoff24h) {
+		dvSwitchTX = append(dvSwitchTX, TXEntry{
+			Callsign: pendingDVSwitchNetworkTx.callsign, Duration: "—",
+			Ago: formatAgo(now.Sub(pendingDVSwitchNetworkTx.start)), Mode: pendingDVSwitchNetworkTx.mode,
+			RxTime: pendingDVSwitchNetworkTx.start.Format("01-02 15:04:05"),
+			Name:   "—", Source: "Net", Loss: "—", BER: "—",
+			Target: pendingDVSwitchNetworkTx.target, timestamp: pendingDVSwitchNetworkTx.start,
 		})
 	}
 
 	// Actualizar estados de estaciones YSF según último snapshot activo
 	activeNowSet := make(map[string]struct{}, len(currentSnapshotList))
-	bridgeOnline := false
 	for _, item := range currentSnapshotList {
 		activeNowSet[item.Callsign] = struct{}{}
-		if item.Type == "Puente local" {
-			bridgeOnline = true
-		}
 	}
 	for call, st := range stations24hMap {
 		if _, online := activeNowSet[call]; !online {
@@ -543,6 +683,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 
 	sort.SliceStable(ysfTX, func(i, j int) bool { return ysfTX[i].timestamp.After(ysfTX[j].timestamp) })
 	sort.SliceStable(dmrTX, func(i, j int) bool { return dmrTX[i].timestamp.After(dmrTX[j].timestamp) })
+	sort.SliceStable(dvSwitchTX, func(i, j int) bool { return dvSwitchTX[i].timestamp.After(dvSwitchTX[j].timestamp) })
 	sort.Slice(combined, func(i, j int) bool {
 		return combined[i].Time > combined[j].Time
 	})
@@ -571,46 +712,66 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		return dmrActiveList[i].Times > dmrActiveList[j].Times
 	})
 
-	bridgeStatus := "Inactivo"
-	if !ysfAvailable {
-		bridgeStatus = "No disponible"
-	} else if bridgeOnline {
-		bridgeStatus = "En línea"
-	}
-
 	lastUpdateStr := "—"
 	if !currentSnapshotTime.IsZero() {
 		lastUpdateStr = currentSnapshotTime.Format("03:04 PM")
 	}
 
+	bridges, bridgeErr := readDVSwitchBridges(cfg.BridgeConfigDir)
+	if bridgeErr != nil {
+		c.Logger().Errorf("No se pueden leer las configuraciones de puentes DVSwitch: %v", bridgeErr)
+		warnings = append(warnings, "No se pudieron leer todas las configuraciones de puentes DVSwitch.")
+	}
+
 	echoLinkConnected, echoLinkUptime, echoLinkAvailable, echoLinkErr := readEchoLinkStatus(c.Request().Context(), cfg.EchoLinkCommand)
-	if echoLinkErr != nil {
+	if echoLinkErr != nil && !errors.Is(echoLinkErr, os.ErrNotExist) && !errors.Is(echoLinkErr, exec.ErrNotFound) {
 		c.Logger().Errorf("No se puede consultar EchoLink: %v", echoLinkErr)
+		if !echoLinkAvailable {
+			warnings = append(warnings, "No se puede consultar EchoLink")
+		}
+	}
+	echoLinkLastHeard := make([]EchoLinkLastHeard, 0)
+	if s.echoLinkHistory != nil {
+		var historyErr error
+		if echoLinkAvailable {
+			echoLinkLastHeard, historyErr = s.echoLinkHistory.Observe(echoLinkConnected, now)
+		} else {
+			echoLinkLastHeard, historyErr = s.echoLinkHistory.Read()
+		}
+		if historyErr != nil {
+			c.Logger().Errorf("No se puede actualizar el historial de EchoLink: %v", historyErr)
+			warnings = append(warnings, "No se pudo actualizar el historial de EchoLink.")
+		}
 	}
 
 	resp := DashboardStatusResponse{
+		DVSwitchTitle: cfg.DVSwitchTitle,
 		Header: HeaderInfo{
 			Title: cfg.Title,
 			Subtitle: strings.NewReplacer("{ysf_reflector}", cfg.YSFReflector, "{tgif_tg}", cfg.TGIFTalkgroup).Replace(cfg.Subtitle) +
 				fmt.Sprintf(" · se actualiza cada 5 segundos · última lectura %s", lastUpdateStr),
 			Badge:             cfg.Badge,
-			LocalBridgeStatus: bridgeStatus,
+			LocalBridgeStatus: "—",
 			LastUpdate:        lastUpdateStr,
 		},
 		Stats: StatsInfo{
 			YSFConnectedNow: len(currentSnapshotList),
 			YSFTx24h:        len(ysfTX),
 			DMRTx24h:        len(dmrTX),
+			DVSwitchTx24h:   len(dvSwitchTX),
 			Stations24h:     len(uniqueCallsigns),
 		},
 		YSFLastTX:             limitUniqueTX(ysfTX, 25),
 		DMRLastTX:             limitUniqueTX(dmrTX, 25),
+		DVSwitchLastTX:        limitTX(dvSwitchTX, 25),
 		DMRActive24h:          dmrActiveList,
 		YSFStations24h:        ysfStations,
 		YSFConnectedList:      currentSnapshotList,
 		Combined24h:           limitCombined(combined, 50),
 		EchoLinkConnectedList: echoLinkConnected,
+		EchoLinkLastHeardList: echoLinkLastHeard,
 		EchoLinkUptime:        echoLinkUptime,
+		DVSwitchBridges:       bridges,
 		YSFAvailable:          ysfAvailable,
 		YSFTrafficAvailable:   ysfAvailable || dmrAvailable,
 		DMRAvailable:          dmrAvailable,
@@ -786,6 +947,19 @@ func formatDurationSecs(secs float64) string {
 		return fmt.Sprintf("%dm %02ds", m, s)
 	}
 	return fmt.Sprintf("%ds", s)
+}
+
+func formatDVSwitchTarget(mode, target, callsign string) string {
+	switch {
+	case target == "":
+		return "—"
+	case mode == "YSF" && target == "ALL":
+		return "ALL at " + callsign
+	case mode == "DMR" || mode == "NXDN" || mode == "P25" || mode == "YSF":
+		return "TG " + target
+	default:
+		return target
+	}
 }
 
 func formatAgo(d time.Duration) string {

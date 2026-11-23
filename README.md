@@ -7,6 +7,8 @@
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
 
+Maneja tres logs fundamentales mas populares, YSF, Echolink (instalado en linux con TLB) y DVSwitch Server, sección MMDVM_BRIDGE, detecta puentes actl criterio de modalidades cuyos rxPort y txPort contienen los mismos puertos invertidos.
+
 ## Instalación
 
 Paquetes Debian disponibles para `arm64` y `amd64`, en ese repositorio ya están compilados y listos para ser instalados:
@@ -59,28 +61,47 @@ entorno.
 | --- | --- | --- |
 | `listen_addr` | `LISTEN_ADDR` | `127.0.0.1:8087` |
 | `base_path` | `BASE_PATH` | `/ameriboard` |
-| `title` | `DASHBOARD_TITLE` | `CONFERENCIA AMERINET` |
-| `subtitle` | `DASHBOARD_SUBTITLE` | `Reflector YSF {ysf_reflector} y TGIF DMR TG {tgif_tg}` |
-| `badge` | `DASHBOARD_BADGE` | `Reflector + TGIF DMR` |
+| `title` | `DASHBOARD_TITLE` | `Ameriboard` |
+| `subtitle` | `DASHBOARD_SUBTITLE` | `Panel de monitoreo de YSF, EchoLink y DVSwitch` |
+| `badge` | `DASHBOARD_BADGE` | vacío |
 | `ysf_reflector` | `YSF_REFLECTOR_ID` | `74001` |
 | `tgif_talkgroup` | `TGIF_TG` | `7401` |
-| `bridge_callsign` | `BRIDGE_CALLSIGN` | `HC1LNM` |
+| `bridge_callsign` | `BRIDGE_CALLSIGN` | vacío (compatibilidad) |
 | `ysf_log_dir` | `YSF_LOG_DIR` | `/var/log/YSFReflector` |
 | `dmr_log_dir` | `DMR_LOG_DIR` | `/var/log/mmdvm` |
 | `echolink_command` | `ECHOLINK_COMMAND` | `tlbcmd` |
 
 Ejemplo: `BASE_PATH=/panel LISTEN_ADDR=127.0.0.1:8087 ./ameriboard`.
+Los badges de puentes configurados se obtienen de `DVSwitch.ini` en los
+directorios `/opt/MMDVM_Bridge*`: dos modalidades forman un puente cuando sus
+puertos `txPort` y `rxPort` están invertidos en el mismo archivo. Se reconocen
+DMR, D-Star (`DSTAR`), NXDN, P25 y YSF; se ignoran `Quantar_Bridge`, la
+sección `QUANTAR` y las líneas comentadas.
+Esto identifica una configuración, no confirma que el puente esté ejecutándose.
+El estado de un puente no se infiere a partir de las conexiones YSF.
 El proxy inverso, si se utiliza, debe conservar el prefijo en la ruta enviada a
 Go. La verificación de salud está en `/healthz`; la API de telemetría está en
 `<BASE_PATH>/api/reflector-status`.
 El reporte de conectados YSF incluye las direcciones IP registradas por el
 reflector; serán visibles para quienes puedan acceder al dashboard.
 Los directorios de logs deben existir y ser legibles para el usuario del
-servidor. Si YSF o DMR no están disponibles, el dashboard muestra un aviso y
-marca sus estadísticas como no disponibles sin bloquear las demás fuentes.
-Cuando EchoLink no se puede consultar, su tabla se oculta y el error queda en
-el registro del servicio. Su leyenda de atributos está disponible junto a la
-tabla cuando EchoLink responde.
+servidor. La tabla DVSwitch toma la modalidad del registro de cada transmisión
+y solo presenta las modalidades que aparecen en el log configurado en
+`dmr_log_dir`. Acepta transmisiones locales (`Begin TX`/`TX state = OFF`) y de
+red (`received ...`/`end of transmission`). Nombre y origen se muestran como
+`—` si el log no los proporciona; pérdida y BER se completan cuando están presentes.
+Cuando falta una fuente, el dashboard oculta sus tablas y tarjetas sin mostrar
+avisos; las demás fuentes continúan funcionando. Los últimos escuchados YSF
+pueden mostrarse con datos del log DVSwitch, aun sin el log del reflector YSF.
+Si EchoLink no está disponible se ocultan ambas tablas, pero se conserva el
+historial guardado. Su leyenda de atributos está disponible junto a la
+tabla cuando EchoLink responde. El dashboard también conserva los últimos
+indicativos desconectados, la fecha y hora de desconexión y la duración de la
+sesión en `echolink-history.json` dentro de `--state-dir` (por defecto
+`/var/lib/ameriboard`). La desconexión se detecta en el siguiente sondeo, cada
+5 segundos; la duración se cuenta desde la primera lectura que observó la
+conexión. El archivo conserva el inicio de sesiones activas para continuar el
+cálculo si se reinicia el servicio.
 
 ## Sitios remotos y perfiles
 
@@ -106,6 +127,12 @@ hasta que exista un administrador, el primer visitante que complete el formulari
 podrá crearlo. La contraseña local se guarda como hash; la sesión dura como
 máximo ocho horas y la cookie no es persistente.
 
+Después de iniciar sesión, la sección **Configuración principal** permite editar
+el título y el subtítulo del dashboard local, así como el título de la tabla
+DVSwitch. Los cambios se aplican sin reiniciar el servicio y se guardan en el
+directorio de estado de Ameriboard; prevalecen sobre los valores del YAML o del
+entorno, sin modificar esos archivos.
+
 Para añadir un sitio remoto, introduce su URL HTTP o HTTPS y su contraseña de
 administrador. Si la URL solo contiene el host, se añade automáticamente
 `/ameriboard`; también puedes indicar una ruta personalizada. Obtén esa contraseña del responsable del sitio por un canal
@@ -125,10 +152,11 @@ accesibles únicamente al propietario del servicio. No incluya contraseñas en U
 
 Tras iniciar sesión, cree o edite los perfiles y elija su visibilidad.
 Opcionalmente, cada perfil permite definir el título, subtítulo y etiqueta de
-su cabecera en este dashboard. Los campos vacíos conservan los valores del
-sitio remoto; el estado del puente y la última lectura siempre proceden de
-ese sitio. Al personalizar el subtítulo se añade la última lectura del sitio.
-Estos cambios no modifican la configuración remota.
+su cabecera en este dashboard, además de un título para la tabla DVSwitch. Los
+campos vacíos conservan los valores del sitio remoto; el estado del puente y la
+última lectura siempre proceden de ese sitio. Al personalizar el subtítulo se
+añade la última lectura del sitio. Estos cambios no modifican la configuración
+remota.
 Desde el selector del dashboard se puede volver al sitio local en cualquier
 momento. Un sitio remoto inaccesible muestra un error solo para ese sitio; no
 impide consultar los demás. Cuando una fuente de telemetría remota falla, el

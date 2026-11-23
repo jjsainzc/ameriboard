@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
 import { BehaviorSubject, Subject, Observable, interval, merge, switchMap, startWith, catchError, of, tap, map, shareReplay } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity, EchoLinkStation } from '../models/reflector.model';
+import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity, DVSwitchActivity, DVSwitchBridge, EchoLinkStation, EchoLinkLastHeard } from '../models/reflector.model';
 
 /** Forma devuelta por DashboardStatusResponse. */
 interface BackendStatusRaw {
@@ -18,10 +18,17 @@ interface BackendStatusRaw {
     ysfConnectedNow: number;
     ysfTx24h: number;
     dmrTx24h: number;
+    dvSwitchTx24h?: number;
     stations24h: number;
   };
+  dvSwitchTitle?: string | null;
+  dvSwitchBridges?: DVSwitchBridge[] | null;
   ysfLastTx?: Array<{ callsign: string; duration: string; ago: string; target?: string; gateway?: string }> | null;
   dmrLastTx?: Array<{ callsign: string; duration: string; ago: string; dmrId?: string; talkgroup?: string }> | null;
+  dvSwitchLastTx?: Array<{
+    rxTime: string; mode: string; callsign: string; name: string; target: string;
+    source: string; duration: string; loss: string; ber: string;
+  }> | null;
   ysfConnectedList?: Array<{ callsign: string; ip: string; type: string; since: string }> | null;
   combined24h?: Array<{
     time: string;
@@ -31,6 +38,7 @@ interface BackendStatusRaw {
     detail: string;
   }> | null;
   echolinkConnectedList?: EchoLinkStation[] | null;
+  echolinkLastHeard?: EchoLinkLastHeard[] | null;
   echolinkUptime?: string | null;
   ysfAvailable?: boolean;
   ysfTrafficAvailable?: boolean;
@@ -48,6 +56,7 @@ export interface SiteProfile {
     title: string;
     subtitle: string;
     badge: string;
+    dvSwitchTitle?: string;
   } | null;
 }
 
@@ -157,10 +166,27 @@ export class ReflectorService {
       duration: tx.duration
     }));
 
+    const dvSwitchLastHeard: DVSwitchActivity[] = (raw.dvSwitchLastTx ?? []).map((tx) => ({
+      rxTime: tx.rxTime,
+      mode: tx.mode,
+      callsign: tx.callsign,
+      name: tx.name || '—',
+      target: tx.target || '—',
+      source: tx.source || '—',
+      duration: tx.duration || '—',
+      loss: tx.loss || '—',
+      ber: tx.ber || '—'
+    }));
+
     const echolinkConnected: EchoLinkStation[] = (raw.echolinkConnectedList ?? []).map((station) => ({
       number: station.number,
       user: station.user,
       attribute: station.attribute
+    }));
+    const echolinkLastHeard: EchoLinkLastHeard[] = (raw.echolinkLastHeard ?? []).map((entry) => ({
+      callsign: entry.callsign,
+      disconnectedAt: entry.disconnectedAt,
+      duration: entry.duration
     }));
 
     return {
@@ -168,18 +194,26 @@ export class ReflectorService {
       ysfTrafficAvailable: raw.ysfTrafficAvailable ?? raw.ysfAvailable !== false,
       dmrAvailable: raw.dmrAvailable !== false,
       echolinkAvailable: raw.echolinkAvailable !== false,
-      warnings: raw.warnings ?? [],
+      warnings: (raw.warnings ?? []).filter(warning =>
+        !((raw.ysfAvailable === false && warning === 'No se encontraron logs YSF recientes') ||
+          (raw.dmrAvailable === false && warning === 'No se encontraron logs DMR recientes') ||
+          (raw.echolinkAvailable === false && warning === 'EchoLink no está disponible'))),
       header: raw.header,
       stats: {
         ysfConnectedCount: raw.stats.ysfConnectedNow,
         ysfTx24h: raw.stats.ysfTx24h,
         dmrTx24h: raw.stats.dmrTx24h,
+        dvSwitchTx24h: raw.stats.dvSwitchTx24h ?? raw.stats.dmrTx24h,
         stations24h: raw.stats.stations24h
       },
+      dvSwitchTitle: raw.dvSwitchTitle?.trim() || 'Actividad digital vía DVSwitch',
+      dvSwitchBridges: raw.dvSwitchBridges ?? [],
       ysfConnected,
       ysfLastHeard,
       dmrLastHeard,
+      dvSwitchLastHeard,
       echolinkConnected,
+      echolinkLastHeard,
       echolinkUptime: raw.echolinkUptime?.trim() || '—'
     };
   }

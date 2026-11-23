@@ -53,29 +53,20 @@
     color: #94a3b8;
   }
 
-  .header-badges {
+  .bridge-badges {
     display: flex;
-    gap: 0.75rem;
     flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
-  .badge {
+  .bridge-badge {
     padding: 0.4rem 0.85rem;
+    border: 1px solid rgba(56, 189, 248, 0.3);
     border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-  }
-
-  .badge-primary {
     background: rgba(56, 189, 248, 0.15);
     color: #38bdf8;
-    border: 1px solid rgba(56, 189, 248, 0.3);
-  }
-
-  .badge-status {
-    background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
-    border: 1px solid rgba(16, 185, 129, 0.3);
+    font-size: 0.8rem;
+    font-weight: 600;
   }
 }
 
@@ -158,6 +149,11 @@
 
 .table-responsive {
   overflow-x: auto;
+}
+
+.echolink-compact-table {
+  width: auto;
+  min-width: min(100%, 30rem);
 }
 
 .echolink-uptime {
@@ -265,6 +261,20 @@ table {
     font-size: 0.78rem;
     font-weight: 600;
   }
+
+  .mode-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .mode-dmr { background: rgba(16, 185, 129, 0.18); color: #34d399; }
+  .mode-nxdn { background: rgba(59, 130, 246, 0.18); color: #60a5fa; }
+  .mode-ysf { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+  .mode-p25 { background: rgba(245, 158, 11, 0.18); color: #fbbf24; }
+  .mode-d-star { background: rgba(244, 63, 94, 0.18); color: #fb7185; }
 
   .empty-msg {
     text-align: center;
