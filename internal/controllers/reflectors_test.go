@@ -122,6 +122,48 @@ func TestLogTimesAndFilesUseUTC(t *testing.T) {
 		t.Fatalf("files = %v, error = %v", files, err)
 	}
 }
+
+func TestYSFLinkedSnapshotWithPaddedAndFullWidthCallsigns(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC()
+	oldStamp := now.Add(-2 * time.Minute).Format("2006-01-02 15:04:05.000")
+	stamp := now.Format("2006-01-02 15:04:05.000")
+	log := fmt.Sprintf("M: %s Currently linked repeaters/gateways:\nM: %s OLD1      : 192.0.2.1:1234 2/60\n"+
+		"M: %s Currently linked repeaters/gateways:\n"+
+		"M: %s WB4TWQ    : 127.0.0.1:32780 2/60\n"+
+		"M: %s WB4TWQ_B  : 127.0.0.1:1437 2/60\n"+
+		"M: %s WB4TWQ-DVS: 192.0.2.2:32780 0/60\n"+
+		"M: %s KF0WSS/R  : 192.0.2.3:732 9/60\n"+
+		"M: %s WD4KT     : 192.0.2.4:27791 1/60\n"+
+		"M: %s KJ4GNU    : 192.0.2.5:4260 4/60\n"+
+		"M: %s HC1LNM    : 192.0.2.6:12782 4/60\n"+
+		"M: %s WB4TWQ    : 192.0.2.7:4260 1/60\n"+
+		"M: %s WB4TWQ    : 192.0.2.7:45254 0/60\n",
+		oldStamp, oldStamp, stamp, stamp, stamp, stamp, stamp, stamp, stamp, stamp, stamp, stamp)
+	if err := os.WriteFile(filepath.Join(dir, "YSFReflector-"+now.Format("2006-01-02")+".log"), []byte(log), 0600); err != nil {
+		t.Fatal(err)
+	}
+	service := NewReflectorService(ReflectorConfig{YSFLogDir: dir, DMRLogDir: dir, EchoLinkCommand: "/nonexistent/tlbcmd"})
+	e := echo.New()
+	rec := httptest.NewRecorder()
+	if err := service.GetStatus(e.NewContext(httptest.NewRequest("GET", "/", nil), rec)); err != nil {
+		t.Fatal(err)
+	}
+	var response DashboardStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"WB4TWQ", "WB4TWQ_B", "WB4TWQ-DVS", "KF0WSS/R", "WD4KT", "KJ4GNU", "HC1LNM", "WB4TWQ", "WB4TWQ"}
+	if !response.YSFAvailable || response.Stats.YSFConnectedNow != len(want) || len(response.YSFConnectedList) != len(want) {
+		t.Fatalf("unexpected YSF snapshot: available=%v count=%d list=%+v", response.YSFAvailable, response.Stats.YSFConnectedNow, response.YSFConnectedList)
+	}
+	for i, call := range want {
+		if response.YSFConnectedList[i].Callsign != call {
+			t.Errorf("entry %d: got %q, want %q", i, response.YSFConnectedList[i].Callsign, call)
+		}
+	}
+}
+
 func TestLimitUniqueTXKeepsLatestPerCallsign(t *testing.T) {
 	got := limitUniqueTX([]TXEntry{
 		{Callsign: "HC1AAA", Ago: "hace 1m"},
