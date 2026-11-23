@@ -1,7 +1,7 @@
 # Ameriboard
 
-> **NOTA**: Primera version Beta funcional, ejemplo en:
-> ```http://159.203.177.35/ameriboard/``` 
+> **NOTA**: Primera version Beta funcional:
+> [Click aqui para ver dashboards digitales/echolink de Amerinet](http://159.203.177.35/ameriboard/)
 
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
