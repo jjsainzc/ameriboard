@@ -9,14 +9,16 @@
       <input type="search" placeholder="Buscar" [value]="pagination.search()" (input)="changeSearch($event)">
     </label>
     @if (pagination.count() > 25) {
-      <span class="pagination-count" aria-live="polite">{{ pagination.filteredCount() }} registros</span>
-      <label class="page-size">Por página
-        <select [value]="pagination.pageSize()" (change)="changePageSize($event)">
-          <option value="5">5</option>
-          <option value="10">10</option>
-          <option value="25">25</option>
-        </select>
-      </label>
+      <div class="pagination-options">
+        <span class="pagination-count" aria-live="polite">{{ pagination.filteredCount() }} registros</span>
+        <label class="page-size">Por página
+          <select [value]="pagination.pageSize()" (change)="changePageSize($event)">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+          </select>
+        </label>
+      </div>
     }
   </div>
 } @else if (pagination.count() > 25) {
