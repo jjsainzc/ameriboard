@@ -1,6 +1,7 @@
 # Ameriboard
 
-> **NOTA**: Primera version Beta funcional
+> **NOTA**: Primera version Beta funcional, ejemplo en:
+> ```http://159.203.177.35/ameriboard/``` 
 
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
