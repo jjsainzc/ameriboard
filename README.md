@@ -7,6 +7,24 @@
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
 
+## Instalación
+
+Paquetes Debian disponibles para `arm64` y `amd64`, en ese repositorio ya están compilados y listos para ser instalados:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jjsainzc/repo-deb/main/hc1lnm.gpg \
+  | sudo gpg --dearmor --yes -o /usr/share/keyrings/hc1lnm-archive-keyring.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/hc1lnm-archive-keyring.gpg arch=$(dpkg --print-architecture)] https://jjsainzc.github.io/repo-deb/ ./" \
+  | sudo tee /etc/apt/sources.list.d/amerinet.list
+
+sudo apt update
+sudo apt install ameriboard
+```
+
+> **NOTA:** Si lo va a usar en Raspberries o Thin Clients (ej. Dell Wyse), recomiendo use la instalación previamente descrita.
+> Si usted es desarrollador con conocimientos de Node.js/Angular/Go Language entonces este repositorio le puede servir.
+
 ## Desarrollo y compilación
 
 Se necesitan Go 1.26.4 o posterior y una versión de Node.js compatible con Angular
