@@ -109,7 +109,7 @@
 /* Grid de tablas superiores */
 .tables-grid-top, .echolink-grid {
   display: grid;
-  grid-template-columns: 1fr 1.3fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   gap: 1.25rem;
 
   @media (max-width: 1024px) {
@@ -118,12 +118,7 @@
 }
 
 .echolink-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
-
-  @media (max-width: 1024px) {
-    grid-template-columns: 1fr;
-  }
 }
 
 .panel-card {

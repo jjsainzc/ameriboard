@@ -28,5 +28,13 @@
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "vitest": "^4.0.8"
+  },
+  "lavamoat": {
+    "allowScripts": {
+      "@angular/build>@parcel/watcher#2.6.0": false,
+      "@angular/build>esbuild#0.28.2": false,
+      "@angular/build>lmdb#3.5.9": false,
+      "@angular/build>lmdb>msgpackr>msgpackr-extract#3.0.7": false
+    }
   }
 }
