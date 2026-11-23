@@ -50,6 +50,14 @@ describe('SiteAdminComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
     http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#site-name')).toBeNull();
+    const addButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find(button => button.textContent?.trim() === 'Agregar sitio');
+    expect(addButton).toBeDefined();
+    addButton!.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
     component.siteForm.setValue({
       name: 'Sitio', url: 'https://example.org/ameriboard', password: 'a secure password', visible: false,
       title: 'Mi reflector', subtitle: '', badge: 'Zona'
@@ -64,15 +72,28 @@ describe('SiteAdminComponent', () => {
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/profiles'))
       .flush([{ id: '1', name: 'Sitio', url: 'https://example.org/ameriboard', visible: false,
         header: { title: 'Mi reflector', subtitle: '', badge: 'Zona' } }]);
-    component.edit(component.sites()[0]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#site-name')).toBeNull();
+    const editButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
+      .find(button => button.textContent?.trim() === 'Editar');
+    expect(editButton).toBeDefined();
+    editButton!.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
     expect(component.siteForm.value.password).toBe('');
     expect(component.siteForm.value.title).toBe('Mi reflector');
     component.save();
     const update = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/profiles/1'));
     expect(update.request.body.password).toBe('');
     expect(update.request.body.header.badge).toBe('Zona');
-    update.flush({});
+    update.flush('error', { status: 500, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
+    component.save();
+    http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/profiles/1')).flush({});
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/profiles')).flush([]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#site-name')).toBeNull();
     fixture.destroy();
     http.verify();
   });

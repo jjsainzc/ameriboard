@@ -26,6 +26,8 @@ import (
 
 var validBasePath = regexp.MustCompile(`^(/[A-Za-z0-9._~-]+)*$`)
 
+var version = "desarrollo"
+
 func main() {
 	if err := run(); err != nil {
 		log.Fatal(err)
@@ -151,6 +153,10 @@ func newServer(basePath string, frontend http.Handler, reflector *controllers.Re
 	e.Use(middleware.Recover())
 
 	routes.Register(e, basePath, frontend, reflector, sites)
+	e.GET(basePath+"/api/version", func(c echo.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		return c.JSON(http.StatusOK, map[string]string{"version": version})
+	})
 	return e
 }
 

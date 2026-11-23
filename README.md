@@ -25,6 +25,8 @@ en la interfaz, `npm start` inicia el servidor de desarrollo de Angular en
 `http://localhost:4200/`; su proxy envía `/api` al servidor Go en el puerto
 8087 con el `BASE_PATH` predeterminado. Arranque también el servidor Go y, si
 utiliza otro puerto, actualice `proxy.conf.json` para desarrollo.
+El pie de página muestra la versión incorporada al binario por GoReleaser;
+en compilaciones locales sin versión indicada muestra «desarrollo».
 
 ## Configuración
 

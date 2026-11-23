@@ -55,6 +55,10 @@
     } @empty {
       <p>No hay sitios configurados.</p>
     }
+    @if (!siteFormOpen()) {
+      <button type="button" (click)="add()" [disabled]="busy()">Agregar sitio</button>
+    }
+    @if (siteFormOpen()) {
     <h2>{{ editing() ? 'Editar sitio' : 'Agregar sitio' }}</h2>
     <form [formGroup]="siteForm" (ngSubmit)="save()">
       <label for="site-name">Nombre
@@ -87,8 +91,9 @@
       </fieldset>
       <div class="actions">
         <button type="submit" [disabled]="busy() || siteForm.invalid || (!editing() && !siteForm.value.password)">Guardar</button>
-        @if (editing()) { <button type="button" (click)="cancel()" [disabled]="busy()">Cancelar</button> }
+        <button type="button" (click)="cancel()" [disabled]="busy()">Cancelar</button>
       </div>
     </form>
+    }
   }
 </main>

@@ -13,8 +13,15 @@ describe('App', () => {
     }).compileComponents();
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
+    TestBed.inject(HttpTestingController).expectOne((request) => request.url.endsWith('/api/version'))
+      .flush({ version: '1.2.3' });
     await TestBed.inject(Router).navigateByUrl('/');
     fixture.detectChanges();
+    const footer = fixture.nativeElement.querySelector('footer') as HTMLElement;
+    expect(footer.textContent).toContain('Versión 1.2.3');
+    expect(footer.textContent).toContain('Powered by');
+    expect(footer.textContent).toContain('Angular Framework');
+    expect(footer.textContent).toContain('Go Language');
     expect(fixture.nativeElement.querySelector('app-reflector-dashboard')).toBeTruthy();
     TestBed.inject(HttpTestingController).expectOne((request) => request.url.endsWith('/api/reflector-status'))
       .flush({ header: { title: 'Test' }, stats: {} });

@@ -67,6 +67,7 @@ func TestServerRoutes(t *testing.T) {
 			body string
 		}{
 			{"/healthz", http.StatusOK, `"status":"ok"`},
+			{base + "/api/version", http.StatusOK, fmt.Sprintf(`"version":%q`, version)},
 			{base + "/api/reflector-status", http.StatusOK, `"title":"Test"`},
 			{base + "/api/missing", http.StatusNotFound, ""},
 			{base + "/nested/route", http.StatusOK, "frontend:/nested/route"},

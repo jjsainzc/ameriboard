@@ -40,6 +40,7 @@ export class SiteAdminComponent {
   readonly error = signal('');
   readonly notice = signal('');
   readonly sites = signal<SiteProfile[]>([]);
+  readonly siteFormOpen = signal(false);
   readonly editing = signal<string | null>(null);
   readonly deleting = signal<string | null>(null);
   readonly setupPasswordVisible = signal(false);
@@ -116,6 +117,7 @@ export class SiteAdminComponent {
 
   edit(site: SiteProfile): void {
     this.editing.set(site.id);
+    this.siteFormOpen.set(true);
     this.deleting.set(null);
     this.siteForm.setValue({
       name: site.name, url: site.url ?? '', password: '', visible: site.visible,
@@ -125,9 +127,17 @@ export class SiteAdminComponent {
   }
 
   cancel(): void {
+    this.siteFormOpen.set(false);
     this.editing.set(null);
     this.siteForm.reset({ name: '', url: '', password: '', visible: false, title: '', subtitle: '', badge: '' });
+    this.sitePasswordVisible.set(false);
     this.error.set('');
+  }
+
+  add(): void {
+    this.cancel();
+    this.deleting.set(null);
+    this.siteFormOpen.set(true);
   }
 
   save(): void {
