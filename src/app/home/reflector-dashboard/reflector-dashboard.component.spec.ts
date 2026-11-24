@@ -119,7 +119,8 @@ describe('ReflectorDashboardComponent', () => {
     const nxdnSection = fixture.nativeElement.querySelector('.nxdn-section') as HTMLDetailsElement;
     expect(nxdnSection.querySelector('summary')?.textContent).toContain('NXDN');
     expect(nxdnSection.querySelector('summary')?.textContent).not.toContain('Actividad NXDN personalizada');
-    expect(nxdnSection.querySelectorAll('.panel-header h2')[1].textContent?.trim()).toBe('Actividad NXDN personalizada');
+    expect(nxdnSection.querySelectorAll('.panel-header h2')[0].textContent?.trim()).toBe('Actividad NXDN personalizada');
+    expect(nxdnSection.querySelectorAll('.panel-header h2')[1].textContent?.trim()).toBe('Últimos escuchados NXDN');
     expect(nxdnSection.textContent).toContain('192.0.2.1:57910');
     expect(nxdnSection.textContent).toContain('TG 8465');
     nxdnSection.open = false;

@@ -3,6 +3,8 @@ package profiles
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -75,6 +77,7 @@ func TestMainSettingsLimitsLengths(t *testing.T) {
 	if _, err := store.SaveMainSettings(MainSettings{Title: strings.Repeat("a", 201)}); err == nil {
 		t.Fatal("accepted oversized title")
 	}
+
 	if _, err := store.SaveMainSettings(MainSettings{Title: "Título", Subtitle: strings.Repeat("a", 501)}); err == nil {
 		t.Fatal("accepted oversized subtitle")
 	}
@@ -87,5 +90,17 @@ func TestMainSettingsLimitsLengths(t *testing.T) {
 	settings, err := store.SaveMainSettings(MainSettings{Title: "Título"})
 	if err != nil || settings.NXDNTitle != DefaultNXDNTitle {
 		t.Fatalf("missing NXDN title = %q, %v", settings.NXDNTitle, err)
+	}
+}
+
+func TestLoadMainSettingsReplacesPreviousNXDNDefault(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dashboard-settings.json")
+	if err := os.WriteFile(path, []byte(`{"title":"Local","nxdnTitle":"Últimos escuchados NXDN"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings, err := NewStore(dir).LoadMainSettings(MainSettings{})
+	if err != nil || settings.NXDNTitle != DefaultNXDNTitle {
+		t.Fatalf("previous NXDN default: %+v, %v", settings, err)
 	}
 }

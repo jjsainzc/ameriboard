@@ -293,7 +293,7 @@
       <section class="tables-grid-top">
         <div class="panel-card">
           <div class="panel-header">
-            <h2>Estaciones o gateways conectados NXDN</h2>
+            <h2>{{ d.nxdnTitle }}</h2>
             <span class="count-pill">{{ d.nxdnReflector.connected.length }}</span>
           </div>
           <app-table-pagination placement="top" label="estaciones NXDN conectadas" [pagination]="nxdnConnectedPages" />
@@ -318,7 +318,7 @@
         </div>
         <div class="panel-card">
           <div class="panel-header">
-            <h2>{{ d.nxdnTitle }}</h2>
+            <h2>Últimos escuchados NXDN</h2>
             <span class="refresh-tag">Auto 5s</span>
           </div>
           <app-table-pagination placement="top" label="últimos escuchados NXDN" [pagination]="nxdnLastHeardPages" />

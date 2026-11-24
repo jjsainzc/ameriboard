@@ -5,6 +5,13 @@ import { BehaviorSubject, Subject, Observable, interval, merge, switchMap, start
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity, DVSwitchActivity, DVSwitchBridge, EchoLinkStation, EchoLinkLastHeard } from '../models/reflector.model';
 
+export const DEFAULT_NXDN_TITLE = 'Estaciones o gateways conectados NXDN';
+
+export function normalizeNXDNTitle(title: string | null | undefined): string {
+  const value = title?.trim();
+  return !value || value === 'Últimos escuchados NXDN' ? DEFAULT_NXDN_TITLE : value;
+}
+
 /** Forma devuelta por DashboardStatusResponse. */
 interface BackendStatusRaw {
   header: {
@@ -266,7 +273,7 @@ export class ReflectorService {
         stations24h: raw.stats.stations24h
       },
       dvSwitchTitle: raw.dvSwitchTitle?.trim() || 'Actividad digital vía DVSwitch',
-      nxdnTitle: raw.nxdnTitle?.trim() || 'Últimos escuchados NXDN',
+      nxdnTitle: normalizeNXDNTitle(raw.nxdnTitle),
       dvSwitchBridges: raw.dvSwitchBridges ?? [],
       ysfConnected,
       ysfLastHeard,

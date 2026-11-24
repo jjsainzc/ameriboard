@@ -18,7 +18,8 @@
 .dashboard-section {
   --section-accent: #38bdf8;
   background: #131724;
-  border: 1px solid var(--section-accent);
+  border: 0;
+  border-top: 3px solid var(--section-accent);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -78,11 +79,12 @@
 }
 
 .dashboard-section > .tables-grid-top,
-.dashboard-section > .echolink-grid,
+.dashboard-section > .echolink-grid {
+  padding: 0 1rem 1rem;
+}
+
 .dashboard-section > .panel-card {
-  border: 0;
-  border-top: 1px solid #1e2538;
-  border-radius: 0;
+  margin: 0 1rem 1rem;
 }
 
 .site-selector {

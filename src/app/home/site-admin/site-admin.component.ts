@@ -4,7 +4,7 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { SiteProfile } from '../../core/services/reflector.service';
+import { DEFAULT_NXDN_TITLE, normalizeNXDNTitle, SiteProfile } from '../../core/services/reflector.service';
 
 @Component({
   selector: 'app-site-admin',
@@ -53,7 +53,7 @@ export class SiteAdminComponent {
     title: ['', [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
     subtitle: ['', Validators.maxLength(500)],
     dvSwitchTitle: ['Actividad digital vía DVSwitch', [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
-    nxdnTitle: ['Últimos escuchados NXDN', [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]]
+    nxdnTitle: [DEFAULT_NXDN_TITLE, [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]]
   });
   readonly setupForm = this.fb.group({
     password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(72)]],
@@ -116,7 +116,7 @@ export class SiteAdminComponent {
     this.http.get<{ title: string; subtitle: string; dvSwitchTitle: string; nxdnTitle?: string }>(`${this.url}/settings`)
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: settings => {
-          this.mainSettingsForm.setValue({ ...settings, nxdnTitle: settings.nxdnTitle || 'Últimos escuchados NXDN' });
+          this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle) });
           this.mainSettingsLoaded.set(true);
         },
         error: err => this.fail(err, 'No se pudo cargar la configuración principal.')
@@ -132,7 +132,7 @@ export class SiteAdminComponent {
       `${this.url}/settings`, this.mainSettingsForm.getRawValue(), { headers: this.headers }
     ).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: settings => {
-        this.mainSettingsForm.setValue({ ...settings, nxdnTitle: settings.nxdnTitle || 'Últimos escuchados NXDN' });
+        this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle) });
         this.busy.set(false);
         this.notice.set('Configuración principal guardada.');
       },
@@ -166,7 +166,8 @@ export class SiteAdminComponent {
     this.siteForm.setValue({
       name: site.name, url: site.url ?? '', password: '', visible: site.visible,
       title: site.header?.title ?? '', subtitle: site.header?.subtitle ?? '', badge: site.header?.badge ?? '',
-      dvSwitchTitle: site.header?.dvSwitchTitle ?? '', nxdnTitle: site.header?.nxdnTitle ?? ''
+      dvSwitchTitle: site.header?.dvSwitchTitle ?? '',
+      nxdnTitle: site.header?.nxdnTitle ? normalizeNXDNTitle(site.header.nxdnTitle) : ''
     });
     this.error.set('');
   }
@@ -220,7 +221,7 @@ export class SiteAdminComponent {
         this.authenticated.set(false);
         this.sites.set([]);
         this.mainSettingsLoaded.set(false);
-        this.mainSettingsForm.reset({ title: '', subtitle: '', dvSwitchTitle: 'Actividad digital vía DVSwitch', nxdnTitle: 'Últimos escuchados NXDN' });
+        this.mainSettingsForm.reset({ title: '', subtitle: '', dvSwitchTitle: 'Actividad digital vía DVSwitch', nxdnTitle: DEFAULT_NXDN_TITLE });
         this.cancel();
       },
       error: err => this.fail(err, 'No se pudo cerrar la sesión.')

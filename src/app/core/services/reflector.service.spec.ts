@@ -2,7 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { ReflectorService } from './reflector.service';
+import { DEFAULT_NXDN_TITLE, normalizeNXDNTitle, ReflectorService } from './reflector.service';
 
 describe('ReflectorService', () => {
   let base: HTMLBaseElement;
@@ -20,6 +20,11 @@ describe('ReflectorService', () => {
   afterEach(() => {
     base.remove();
     http.verify();
+  });
+
+  it('updates the old NXDN default while preserving a custom connected title', () => {
+    expect(normalizeNXDNTitle('Últimos escuchados NXDN')).toBe(DEFAULT_NXDN_TITLE);
+    expect(normalizeNXDNTitle('Mi reflector NXDN')).toBe('Mi reflector NXDN');
   });
 
   it('requests the configured base path and maps the backend response', () => {
@@ -49,7 +54,7 @@ describe('ReflectorService', () => {
     });
     expect(service.data()?.dvSwitchTitle).toBe('Actividad personalizada');
     expect(service.data()?.nxdnReflector.available).toBe(false);
-    expect(service.data()?.nxdnTitle).toBe('Últimos escuchados NXDN');
+    expect(service.data()?.nxdnTitle).toBe('Estaciones o gateways conectados NXDN');
     expect(service.data()?.dvSwitchBridges).toEqual([{ modeA: 'DMR', modeB: 'YSF' }]);
     expect(service.data()?.ysfConnected[0]).toEqual({ callsign: 'TEST1', ip: '192.0.2.1', gateway: 'Gateway', since: '10:00' });
     expect(service.data()?.ysfLastHeard[0].loss).toBe('—');

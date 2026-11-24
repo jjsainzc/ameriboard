@@ -189,8 +189,11 @@ máximo ocho horas y la cookie no es persistente.
 
 Después de iniciar sesión, la sección **Configuración principal** permite editar
 el título y el subtítulo del dashboard local, así como los títulos de las tablas
-DVSwitch y últimos escuchados NXDN. Los encabezados de las secciones colapsables
+DVSwitch y conectados NXDN. Los encabezados de las secciones colapsables
 siguen diciendo «DVSwitch» y «NXDN».
+El valor anterior predeterminado «Últimos escuchados NXDN» se sustituye por
+«Estaciones o gateways conectados NXDN»; los demás títulos personalizados se
+conservan.
 Los cambios se aplican sin reiniciar el servicio y se guardan en el
 directorio de estado de Ameriboard; prevalecen sobre los valores del YAML o del
 entorno, sin modificar esos archivos.
@@ -214,7 +217,7 @@ accesibles únicamente al propietario del servicio. No incluya contraseñas en U
 
 Tras iniciar sesión, cree o edite los perfiles y elija su visibilidad.
 Opcionalmente, cada perfil permite definir el título, subtítulo y etiqueta de
-su cabecera en este dashboard, además de títulos para las tablas DVSwitch y NXDN. Los
+su cabecera en este dashboard, además de títulos para las tablas DVSwitch y conectados NXDN. Los
 campos vacíos conservan los valores del sitio remoto; el estado del puente y la
 última lectura siempre proceden de ese sitio. Al personalizar el subtítulo se
 añade la última lectura del sitio. Estos cambios no modifican la configuración

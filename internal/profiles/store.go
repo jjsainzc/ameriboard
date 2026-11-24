@@ -37,7 +37,7 @@ type ProfileHeader struct {
 }
 
 const DefaultDVSwitchTitle = "Actividad digital vía DVSwitch"
-const DefaultNXDNTitle = "Últimos escuchados NXDN"
+const DefaultNXDNTitle = "Estaciones o gateways conectados NXDN"
 
 type MainSettings struct {
 	Title         string `json:"title"`
@@ -73,6 +73,9 @@ func (s *Store) LoadMainSettings(defaults MainSettings) (MainSettings, error) {
 	}
 	if settings.DVSwitchTitle == "" {
 		settings.DVSwitchTitle = defaults.DVSwitchTitle
+	}
+	if settings.NXDNTitle == "Últimos escuchados NXDN" {
+		settings.NXDNTitle = DefaultNXDNTitle
 	}
 	if err := validateMainSettings(&settings); err != nil {
 		return MainSettings{}, err
