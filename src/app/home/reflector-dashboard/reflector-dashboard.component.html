@@ -126,10 +126,8 @@
     @if (d.ysfAvailable || d.ysfTrafficAvailable) {
     <details class="dashboard-section ysf-section" open>
       <summary class="dashboard-section-summary">
-        <span>YSF</span>
-        @if (d.ysfReflectorInfo?.available) {
-          <span class="section-reflector-info">{{ d.ysfReflectorInfo.name }} · {{ d.ysfReflectorInfo.id }} · puerto {{ d.ysfReflectorInfo.port }}</span>
-        }
+        <span>{{ d.ysfReflectorInfo.name }}</span>
+        <span class="section-reflector-info">{{ d.ysfReflectorInfo.id }} · puerto {{ d.ysfReflectorInfo.port }}</span>
       </summary>
     <section class="tables-grid-top">
       <!-- Tabla 1: Estaciones o Gateways Conectados -->
@@ -218,8 +216,8 @@
     @if (d.pysfReflector.available) {
     <details class="dashboard-section pysf-section" open>
       <summary class="dashboard-section-summary">
-        <span>pYSFReflector</span>
-        <span class="section-reflector-info">{{ d.pysfReflector.name }} · {{ d.pysfReflector.id }} · puerto {{ d.pysfReflector.port }}</span>
+        <span>{{ d.pysfReflector.name }}</span>
+        <span class="section-reflector-info">{{ d.pysfReflector.id }} · puerto {{ d.pysfReflector.port }}</span>
       </summary>
       <section class="tables-grid-top">
         <div class="panel-card">

@@ -153,7 +153,7 @@ export class ReflectorService {
     const ysfConnected: YsfStation[] = (raw.ysfConnectedList ?? []).map((item) => ({
       callsign: item.callsign,
       ip: item.ip,
-      gateway: item.type,
+      gateway: item.type || (item.ip === '127.0.0.1' || item.ip === 'localhost' || item.ip.startsWith('127.') ? 'Puente' : 'Estación o gateway'),
       since: item.since
     }));
 
@@ -215,7 +215,7 @@ export class ReflectorService {
         connected: (raw.pysfReflector?.connected ?? []).map(station => ({
           callsign: station.callsign,
           ip: station.ip,
-          gateway: station.type || 'Estación o gateway',
+          gateway: station.type || (station.ip === '127.0.0.1' || station.ip === 'localhost' || station.ip.startsWith('127.') ? 'Puente' : 'Estación o gateway'),
           since: station.since
         })),
         lastHeard: this.uniqueLastHeard(raw.pysfReflector?.lastHeard ?? []).map(tx => ({

@@ -60,6 +60,17 @@ func TestPYSFReflectorINIAndUnitPaths(t *testing.T) {
 	}
 }
 
+func TestYSFGatewayType(t *testing.T) {
+	for _, ip := range []string{"127.0.0.1", "127.1.2.3", "localhost", "::1"} {
+		if got := ysfGatewayType(ip); got != "Puente" {
+			t.Fatalf("YSF gateway type for %q = %q, want Puente", ip, got)
+		}
+	}
+	if got := ysfGatewayType("192.0.2.1"); got != "Estación o gateway" {
+		t.Fatalf("remote YSF gateway type = %q", got)
+	}
+}
+
 func TestParseLogTimeFractionalSeconds(t *testing.T) {
 	for _, value := range []string{
 		"2026-11-22 12:34:56",
@@ -414,7 +425,8 @@ func TestYSFLinkedSnapshotWithPaddedAndFullWidthCallsigns(t *testing.T) {
 		if response.YSFConnectedList[i].Callsign != call {
 			t.Errorf("entry %d: got %q, want %q", i, response.YSFConnectedList[i].Callsign, call)
 		}
-		if response.YSFConnectedList[i].Type != "Estación o gateway" {
+		wantType := ysfGatewayType(response.YSFConnectedList[i].IP)
+		if response.YSFConnectedList[i].Type != wantType {
 			t.Errorf("entry %d has inferred type %q", i, response.YSFConnectedList[i].Type)
 		}
 	}

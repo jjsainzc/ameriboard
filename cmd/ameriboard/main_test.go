@@ -157,7 +157,7 @@ func TestReflectorRouteReadsLogs(t *testing.T) {
 		!strings.HasPrefix(data.Header.Subtitle, "YSF 42, TG 77") || data.Stats.YSFConnectedNow != 2 ||
 		len(data.YSFConnectedList) != 2 || data.YSFConnectedList[0].Callsign != "TEST1" ||
 		data.YSFConnectedList[0].IP != "192.0.2.1" || data.YSFConnectedList[1].IP != "127.0.0.1" ||
-		data.YSFConnectedList[1].Type != "Estación o gateway" || data.Header.LocalBridgeStatus != "—" {
+		data.YSFConnectedList[1].Type != "Puente" || data.Header.LocalBridgeStatus != "—" {
 		t.Fatalf("unexpected status response: %d %s", response.Code, response.Body.String())
 	}
 }

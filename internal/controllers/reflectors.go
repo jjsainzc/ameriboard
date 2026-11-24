@@ -198,6 +198,14 @@ type PYSFReflectorData struct {
 	LastHeard []TXEntry         `json:"lastHeard"`
 }
 
+func ysfGatewayType(ip string) string {
+	ip = strings.TrimSpace(strings.ToLower(ip))
+	if ip == "localhost" || ip == "::1" || strings.HasPrefix(ip, "127.") {
+		return "Puente"
+	}
+	return "Estación o gateway"
+}
+
 type EchoLinkStation struct {
 	Number    string `json:"number"`
 	User      string `json:"user"`
@@ -712,7 +720,7 @@ func readPYSFReflectorStatus(parent context.Context, cfg ReflectorConfig, now ti
 						connected = append(connected, YSFConnectedNow{
 							Callsign: call,
 							IP:       m[4],
-							Type:     "Estación o gateway",
+							Type:     ysfGatewayType(m[4]),
 							Since:    connectedTime.Format("03:04 PM"),
 						})
 					}
@@ -825,7 +833,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 						currentSnapshotList = append(currentSnapshotList, YSFConnectedNow{
 							Callsign: call,
 							IP:       m[4],
-							Type:     "Estación o gateway",
+							Type:     ysfGatewayType(m[4]),
 							Since:    currentSnapshotTime.Format("03:04 PM"),
 						})
 					}
@@ -1232,6 +1240,15 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	}
 
 	ysfReflectorInfo := readYSFReflectorInfo(cfg.YSFReflectorConfig)
+	if ysfReflectorInfo.ID == "" {
+		ysfReflectorInfo.ID = cfg.YSFReflector
+	}
+	if ysfReflectorInfo.Name == "" {
+		ysfReflectorInfo.Name = "YSF"
+	}
+	if ysfReflectorInfo.ID != "" || ysfReflectorInfo.Name != "" {
+		ysfReflectorInfo.Available = ysfReflectorInfo.Available || cfg.YSFLogDir != ""
+	}
 	pysfReflector := readPYSFReflectorStatus(c.Request().Context(), cfg, now)
 
 	resp := DashboardStatusResponse{
