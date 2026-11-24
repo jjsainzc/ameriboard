@@ -52,9 +52,27 @@ export interface DVSwitchBridge {
   modeB: string;
 }
 
+export interface YsfReflectorInfo {
+  available: boolean;
+  id: string;
+  name: string;
+  port: string;
+}
+
+export interface PysfReflectorData {
+  available: boolean;
+  id: string;
+  name: string;
+  port: string;
+  connected: YsfStation[];
+  lastHeard: YsfActivity[];
+}
+
 export interface ReflectorDashboardData {
   ysfAvailable: boolean;
   ysfTrafficAvailable: boolean;
+  ysfReflectorInfo: YsfReflectorInfo;
+  pysfReflector: PysfReflectorData;
   dmrAvailable: boolean;
   echolinkAvailable: boolean;
   warnings: string[];

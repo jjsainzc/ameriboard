@@ -15,17 +15,20 @@ import (
 )
 
 type Config struct {
-	ListenAddr      string `yaml:"listen_addr"`
-	BasePath        string `yaml:"base_path"`
-	Title           string `yaml:"title"`
-	Subtitle        string `yaml:"subtitle"`
-	Badge           string `yaml:"badge"`
-	YSFReflector    string `yaml:"ysf_reflector"`
-	TGIFTalkgroup   string `yaml:"tgif_talkgroup"`
-	BridgeCall      string `yaml:"bridge_callsign"`
-	YSFLogDir       string `yaml:"ysf_log_dir"`
-	DMRLogDir       string `yaml:"dmr_log_dir"`
-	EchoLinkCommand string `yaml:"echolink_command"`
+	ListenAddr           string `yaml:"listen_addr"`
+	BasePath             string `yaml:"base_path"`
+	Title                string `yaml:"title"`
+	Subtitle             string `yaml:"subtitle"`
+	Badge                string `yaml:"badge"`
+	YSFReflector         string `yaml:"ysf_reflector"`
+	YSFReflectorConfig   string `yaml:"ysf_reflector_config"`
+	PYSFReflectorConfig  string `yaml:"pysf_reflector_config"`
+	PYSFReflectorService string `yaml:"pysf_reflector_service"`
+	TGIFTalkgroup        string `yaml:"tgif_talkgroup"`
+	BridgeCall           string `yaml:"bridge_callsign"`
+	YSFLogDir            string `yaml:"ysf_log_dir"`
+	DMRLogDir            string `yaml:"dmr_log_dir"`
+	EchoLinkCommand      string `yaml:"echolink_command"`
 }
 
 func Defaults(getenv func(string) string) Config {
@@ -36,17 +39,20 @@ func Defaults(getenv func(string) string) Config {
 		return fallback
 	}
 	return Config{
-		ListenAddr:      get("LISTEN_ADDR", "127.0.0.1:8087"),
-		BasePath:        get("BASE_PATH", "/ameriboard"),
-		Title:           get("DASHBOARD_TITLE", "Ameriboard"),
-		Subtitle:        get("DASHBOARD_SUBTITLE", "Panel de monitoreo de YSF, EchoLink y DVSwitch"),
-		Badge:           get("DASHBOARD_BADGE", ""),
-		YSFReflector:    get("YSF_REFLECTOR_ID", "74001"),
-		TGIFTalkgroup:   get("TGIF_TG", "7401"),
-		BridgeCall:      get("BRIDGE_CALLSIGN", ""),
-		YSFLogDir:       get("YSF_LOG_DIR", "/var/log/YSFReflector"),
-		DMRLogDir:       get("DMR_LOG_DIR", "/var/log/mmdvm"),
-		EchoLinkCommand: get("ECHOLINK_COMMAND", "tlbcmd"),
+		ListenAddr:           get("LISTEN_ADDR", "127.0.0.1:8087"),
+		BasePath:             get("BASE_PATH", "/ameriboard"),
+		Title:                get("DASHBOARD_TITLE", "Ameriboard"),
+		Subtitle:             get("DASHBOARD_SUBTITLE", "Panel de monitoreo de YSF, EchoLink y DVSwitch"),
+		Badge:                get("DASHBOARD_BADGE", ""),
+		YSFReflector:         get("YSF_REFLECTOR_ID", "74001"),
+		YSFReflectorConfig:   get("YSF_REFLECTOR_CONFIG", "/etc/YSFreflector.ini"),
+		PYSFReflectorConfig:  get("PYSF_REFLECTOR_CONFIG", "/opt/pysfreflector/pysfreflector.ini"),
+		PYSFReflectorService: get("PYSF_REFLECTOR_SERVICE", "ysfreflector"),
+		TGIFTalkgroup:        get("TGIF_TG", "7401"),
+		BridgeCall:           get("BRIDGE_CALLSIGN", ""),
+		YSFLogDir:            get("YSF_LOG_DIR", "/var/log/YSFReflector"),
+		DMRLogDir:            get("DMR_LOG_DIR", "/var/log/mmdvm"),
+		EchoLinkCommand:      get("ECHOLINK_COMMAND", "tlbcmd"),
 	}
 }
 

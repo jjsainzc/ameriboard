@@ -75,6 +75,9 @@ entorno.
 | `tgif_talkgroup` | `TGIF_TG` | `7401` |
 | `bridge_callsign` | `BRIDGE_CALLSIGN` | vacío (compatibilidad) |
 | `ysf_log_dir` | `YSF_LOG_DIR` | `/var/log/YSFReflector` |
+| `ysf_reflector_config` | `YSF_REFLECTOR_CONFIG` | `/etc/YSFreflector.ini` |
+| `pysf_reflector_config` | `PYSF_REFLECTOR_CONFIG` | `/opt/pysfreflector/pysfreflector.ini` |
+| `pysf_reflector_service` | `PYSF_REFLECTOR_SERVICE` | `ysfreflector` |
 | `dmr_log_dir` | `DMR_LOG_DIR` | `/var/log/mmdvm` |
 | `echolink_command` | `ECHOLINK_COMMAND` | `tlbcmd` |
 

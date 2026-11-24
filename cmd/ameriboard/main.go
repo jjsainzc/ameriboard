@@ -92,7 +92,10 @@ func run() error {
 	reflector := controllers.NewReflectorService(controllers.ReflectorConfig{
 		Title: cfg.Title, Subtitle: cfg.Subtitle, Badge: cfg.Badge, DVSwitchTitle: mainSettings.DVSwitchTitle,
 		YSFReflector: cfg.YSFReflector, TGIFTalkgroup: cfg.TGIFTalkgroup,
-		BridgeCall: cfg.BridgeCall, YSFLogDir: cfg.YSFLogDir, DMRLogDir: cfg.DMRLogDir,
+		YSFReflectorConfig:   cfg.YSFReflectorConfig,
+		PYSFReflectorConfig:  cfg.PYSFReflectorConfig,
+		PYSFReflectorService: cfg.PYSFReflectorService,
+		BridgeCall:           cfg.BridgeCall, YSFLogDir: cfg.YSFLogDir, DMRLogDir: cfg.DMRLogDir,
 		EchoLinkCommand:     cfg.EchoLinkCommand,
 		EchoLinkHistoryFile: filepath.Join(*stateDir, "echolink-history.json"),
 		BridgeConfigDir:     "/opt",

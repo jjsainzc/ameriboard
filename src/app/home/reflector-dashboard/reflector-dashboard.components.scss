@@ -15,6 +15,45 @@
   gap: 1.25rem;
 }
 
+.dashboard-section {
+  background: #131724;
+  border: 1px solid #1e2538;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dashboard-section-summary {
+  min-height: 3rem;
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #f1f5f9;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  list-style-position: inside;
+
+  &::marker {
+    color: #38bdf8;
+  }
+}
+
+.section-reflector-info {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.dashboard-section > .tables-grid-top,
+.dashboard-section > .echolink-grid,
+.dashboard-section > .panel-card {
+  border: 0;
+  border-top: 1px solid #1e2538;
+  border-radius: 0;
+}
+
 .site-selector {
   max-width: 1440px;
   margin: 0 auto 1rem;

@@ -23,6 +23,15 @@ interface BackendStatusRaw {
   };
   dvSwitchTitle?: string | null;
   dvSwitchBridges?: DVSwitchBridge[] | null;
+  ysfReflectorInfo?: { available?: boolean; id?: string; name?: string; port?: string } | null;
+  pysfReflector?: {
+    available?: boolean;
+    id?: string;
+    name?: string;
+    port?: string;
+    connected?: Array<{ callsign: string; ip: string; type: string; since: string }> | null;
+    lastHeard?: Array<{ callsign: string; duration: string; ago: string; target?: string; gateway?: string }> | null;
+  } | null;
   ysfLastTx?: Array<{ callsign: string; duration: string; ago: string; target?: string; gateway?: string }> | null;
   dmrLastTx?: Array<{ callsign: string; duration: string; ago: string; dmrId?: string; talkgroup?: string }> | null;
   dvSwitchLastTx?: Array<{
@@ -192,6 +201,32 @@ export class ReflectorService {
     return {
       ysfAvailable: raw.ysfAvailable !== false,
       ysfTrafficAvailable: raw.ysfTrafficAvailable ?? raw.ysfAvailable !== false,
+      ysfReflectorInfo: {
+        available: raw.ysfReflectorInfo?.available === true,
+        id: raw.ysfReflectorInfo?.id?.trim() || '—',
+        name: raw.ysfReflectorInfo?.name?.trim() || '—',
+        port: raw.ysfReflectorInfo?.port?.trim() || '—'
+      },
+      pysfReflector: {
+        available: raw.pysfReflector?.available === true,
+        id: raw.pysfReflector?.id?.trim() || '—',
+        name: raw.pysfReflector?.name?.trim() || '—',
+        port: raw.pysfReflector?.port?.trim() || '—',
+        connected: (raw.pysfReflector?.connected ?? []).map(station => ({
+          callsign: station.callsign,
+          ip: station.ip,
+          gateway: station.type || 'Estación o gateway',
+          since: station.since
+        })),
+        lastHeard: this.uniqueLastHeard(raw.pysfReflector?.lastHeard ?? []).map(tx => ({
+          time: tx.ago,
+          callsign: tx.callsign,
+          target: tx.target || '—',
+          gateway: tx.gateway || '—',
+          duration: tx.duration,
+          loss: '—'
+        }))
+      },
       dmrAvailable: raw.dmrAvailable !== false,
       echolinkAvailable: raw.echolinkAvailable !== false,
       warnings: (raw.warnings ?? []).filter(warning =>

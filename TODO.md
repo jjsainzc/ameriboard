@@ -33,3 +33,22 @@ M: 2026-11-23 10:00:58.386 P25, TX state = OFF
 ```
 
 - [x] 5. Siguiendo las instrucciones de este manual /home/hc1lnm/Documents/AngularPro/ameriboard/doc/tlbcmd-commands.txt implementar en la tabla de echolink, para administradores, en la misma tabla de echolink, crear una columna de acciones con iconos que se activan o se desactivan por ejemmplo para las opciones mutear/desmutear, para desconectar una X, para las demas opciones poner un menu desplegable que permita las operaciones usando ventanas flotantes, cuando sean necesario, en principio implementar connect,disconnect, ban, mute, message
+
+- [x] 6. Poner en el encabezado de la tabla de YSF el nombre, numero y puerto activo del reflector que se toma en `/etc/YSFreflector.ini` esta es una de las versiones de ese reflector., normalmente la conexiones que se hacen localmente son puentes.
+Como no hay una instalacion aca de ese file, dejo un ejemplo de donde se debe tomar los datos:
+```
+[Info]
+Id=31645
+Name=US EAGLES
+Description=Florida Eagles
+```
+
+- [x] 7. Tenemos otra version de reflector YSF hecha con python, los files estan en `/opt/pysfreflector`, ahi esta el nombre del service que se deberia buscar para ver si esta instalado, y tomar del ini, los datos para hacer otro juego de ventanas de ese reflector, los logs estan definidos en el ini que tambien el service debe indicar el path, pero como no esta instalado en este server hay un ejemplo de log en `/opt/pysfreflector/example-log`, de igual forma si este reflector no esta instalado ni activo no se muestran las pantallas, otra forma de determinarloe es asi:
+```
+root@ubuntu-s-1vcpu-512mb-10gb-nyc1-01:~# netstat -tulpn | grep 4200
+udp        0      0 0.0.0.0:42000           0.0.0.0:*                           13792/./YSFReflecto
+udp        0      0 0.0.0.0:42001           0.0.0.0:*                           160708/python3
+```
+generalmente los puertos asignados para estos reflectores de YSF son del 42000 - 4200X
+
+- [x] 8. Hacer las secciones para agrupar las tablas de forma colapsable como las que tiene el Amerimon.

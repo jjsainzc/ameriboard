@@ -14,6 +14,52 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+func TestYSFReflectorInfoFromIni(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "YSFreflector.ini")
+	if err := os.WriteFile(path, []byte("[Info]\nId=31645\nName=US EAGLES\nDescription=Florida Eagles\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	info := readYSFReflectorInfo(path)
+	if info.ID != "31645" || info.Name != "US EAGLES" {
+		t.Fatalf("unexpected YSF reflector info: %+v", info)
+	}
+	if got := parseYSFActivePortOutput("udp 0 0 0.0.0.0:42000 0.0.0.0:* 13792/YSFReflecto\n"); got != "42000" {
+		t.Fatalf("active YSF port = %q, want 42000", got)
+	}
+}
+
+func TestPYSFReflectorINIAndUnitPaths(t *testing.T) {
+	dir := t.TempDir()
+	iniPath := filepath.Join(dir, "pysfreflector.ini")
+	if err := os.WriteFile(iniPath, []byte(`[Info]
+	Id=74001
+	Name=EC QUITO
+	[Network]
+	Port=42001
+	[Log]
+	FilePath=`+dir+`
+	FileRoot=YSFReflector
+	`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ini := readPYSFReflectorINI(iniPath)
+	if ini.ID != "74001" || ini.Name != "EC QUITO" || ini.Port != "42001" ||
+		ini.LogDir != dir || ini.LogRoot != "YSFReflector" {
+		t.Fatalf("unexpected pYSF INI: %+v", ini)
+	}
+	unitPath := filepath.Join(dir, "ysfreflector.service")
+	if err := os.WriteFile(unitPath, []byte("[Service]\nExecStart=/opt/pysfreflector/YSFReflector "+iniPath+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := readPYSFReflectorUnitIni(unitPath); got != iniPath {
+		t.Fatalf("pYSF INI from unit = %q, want %q", got, iniPath)
+	}
+	if m := pysfDataStartRe.FindStringSubmatch("M: 2024-08-16 21:16:54.636 <1077555> Received data from HC1LNM to ALL at HC1LNM-DVS"); len(m) != 5 ||
+		m[2] != "HC1LNM" || m[4] != "HC1LNM-DVS" {
+		t.Fatalf("pYSF traffic line was not parsed: %v", m)
+	}
+}
+
 func TestParseLogTimeFractionalSeconds(t *testing.T) {
 	for _, value := range []string{
 		"2026-11-22 12:34:56",

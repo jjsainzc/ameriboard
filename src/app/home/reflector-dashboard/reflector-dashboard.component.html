@@ -124,6 +124,13 @@
 
     <!-- Fila Central: Estaciones Conectadas + Últimos Escuchados YSF -->
     @if (d.ysfAvailable || d.ysfTrafficAvailable) {
+    <details class="dashboard-section ysf-section" open>
+      <summary class="dashboard-section-summary">
+        <span>YSF</span>
+        @if (d.ysfReflectorInfo?.available) {
+          <span class="section-reflector-info">{{ d.ysfReflectorInfo.name }} · {{ d.ysfReflectorInfo.id }} · puerto {{ d.ysfReflectorInfo.port }}</span>
+        }
+      </summary>
     <section class="tables-grid-top">
       <!-- Tabla 1: Estaciones o Gateways Conectados -->
       @if (d.ysfAvailable) {
@@ -205,9 +212,75 @@
       </div>
       }
     </section>
+    </details>
+    }
+
+    @if (d.pysfReflector.available) {
+    <details class="dashboard-section pysf-section" open>
+      <summary class="dashboard-section-summary">
+        <span>pYSFReflector</span>
+        <span class="section-reflector-info">{{ d.pysfReflector.name }} · {{ d.pysfReflector.id }} · puerto {{ d.pysfReflector.port }}</span>
+      </summary>
+      <section class="tables-grid-top">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2>Estación o gateway conectado</h2>
+            <span class="count-pill">{{ d.pysfReflector.connected.length }}</span>
+          </div>
+          <app-table-pagination placement="top" label="estaciones pYSF conectadas" [pagination]="pysfConnectedPages" />
+          <div class="table-responsive">
+            <table>
+              <thead><tr><th>Indicativo</th><th>IP</th><th>Gateway</th><th>Última lectura</th></tr></thead>
+              <tbody>
+                @for (station of pysfConnectedPages.rows(); track $index) {
+                  <tr>
+                    <td data-label="Indicativo" class="callsign">{{ station.callsign }}</td>
+                    <td data-label="IP" class="mono">{{ station.ip }}</td>
+                    <td data-label="Gateway">{{ station.gateway }}</td>
+                    <td data-label="Última lectura" class="mono">{{ station.since }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="4" class="empty-msg">{{ pysfConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay estaciones conectadas' }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-table-pagination label="estaciones pYSF conectadas" [pagination]="pysfConnectedPages" />
+        </div>
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2>Últimos escuchados pYSF</h2>
+            <span class="refresh-tag">Auto 5s</span>
+          </div>
+          <app-table-pagination placement="top" label="últimos escuchados pYSF" [pagination]="pysfLastHeardPages" />
+          <div class="table-responsive">
+            <table class="ysf-last-heard">
+              <thead><tr><th>Hace</th><th>Indicativo</th><th>Destino</th><th>Gateway</th><th>Duración</th><th>Pérdida</th></tr></thead>
+              <tbody>
+                @for (item of pysfLastHeardPages.rows(); track item.time + item.callsign) {
+                  <tr>
+                    <td data-label="Hace" class="mono">{{ item.time }}</td>
+                    <td data-label="Indicativo" class="callsign">{{ item.callsign }}</td>
+                    <td data-label="Destino">{{ item.target }}</td>
+                    <td data-label="Gateway">{{ item.gateway }}</td>
+                    <td data-label="Duración" class="mono">{{ item.duration }}</td>
+                    <td data-label="Pérdida" class="mono">{{ item.loss }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="6" class="empty-msg">{{ pysfLastHeardPages.search() ? 'Sin resultados para la búsqueda' : 'Sin actividad reciente en pYSF' }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-table-pagination label="últimos escuchados pYSF" [pagination]="pysfLastHeardPages" />
+        </div>
+      </section>
+    </details>
     }
 
     @if (d.echolinkAvailable) {
+    <details class="dashboard-section echolink-section" open>
+      <summary class="dashboard-section-summary"><span>EchoLink</span></summary>
     <section class="echolink-grid" aria-label="Actividad EchoLink">
     <section class="panel-card" aria-labelledby="echolink-title">
       <div class="panel-header">
@@ -338,6 +411,7 @@
       <app-table-pagination label="últimos escuchados EchoLink" [pagination]="echolinkLastHeardPages" />
     </section>
     </section>
+    </details>
     <dialog #legendDialog class="echolink-legend" aria-labelledby="echolink-legend-title">
       <h2 id="echolink-legend-title" tabindex="-1" autofocus>Atributos de EchoLink</h2>
       <table class="legend-table">
@@ -410,6 +484,8 @@
 
     <!-- Actividad registrada por modalidad en el log DVSwitch -->
     @if (d.dmrAvailable) {
+    <details class="dashboard-section dvswitch-section" open>
+      <summary class="dashboard-section-summary"><span>{{ d.dvSwitchTitle }}</span></summary>
     <section class="panel-card full-width">
       <div class="panel-header">
         <h2>{{ d.dvSwitchTitle }}</h2>
@@ -460,6 +536,7 @@
       </div>
       <app-table-pagination label="actividad DVSwitch" [pagination]="dvSwitchPages" />
     </section>
+    </details>
     }
   </div>
 }

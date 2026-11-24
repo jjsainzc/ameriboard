@@ -84,18 +84,21 @@ JSON, ejemplo
 */
 
 type ReflectorConfig struct {
-	Title               string
-	Subtitle            string
-	Badge               string
-	DVSwitchTitle       string
-	YSFReflector        string
-	TGIFTalkgroup       string
-	BridgeCall          string
-	YSFLogDir           string
-	DMRLogDir           string
-	EchoLinkCommand     string
-	EchoLinkHistoryFile string
-	BridgeConfigDir     string
+	Title                string
+	Subtitle             string
+	Badge                string
+	DVSwitchTitle        string
+	YSFReflector         string
+	YSFReflectorConfig   string
+	PYSFReflectorConfig  string
+	PYSFReflectorService string
+	TGIFTalkgroup        string
+	BridgeCall           string
+	YSFLogDir            string
+	DMRLogDir            string
+	EchoLinkCommand      string
+	EchoLinkHistoryFile  string
+	BridgeConfigDir      string
 }
 
 type ReflectorService struct {
@@ -179,6 +182,22 @@ type YSFConnectedNow struct {
 	Since    string `json:"since"`
 }
 
+type YSFReflectorInfo struct {
+	Available bool   `json:"available"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Port      string `json:"port"`
+}
+
+type PYSFReflectorData struct {
+	Available bool              `json:"available"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Port      string            `json:"port"`
+	Connected []YSFConnectedNow `json:"connected"`
+	LastHeard []TXEntry         `json:"lastHeard"`
+}
+
 type EchoLinkStation struct {
 	Number    string `json:"number"`
 	User      string `json:"user"`
@@ -196,6 +215,8 @@ type CombinedActivity24h struct {
 type DashboardStatusResponse struct {
 	Header                HeaderInfo            `json:"header"`
 	DVSwitchTitle         string                `json:"dvSwitchTitle"`
+	YSFReflectorInfo      YSFReflectorInfo      `json:"ysfReflectorInfo"`
+	PYSFReflector         PYSFReflectorData     `json:"pysfReflector"`
 	Stats                 StatsInfo             `json:"stats"`
 	YSFLastTX             []TXEntry             `json:"ysfLastTx"`
 	DMRLastTX             []TXEntry             `json:"dmrLastTx"`
@@ -400,6 +421,339 @@ func echoLinkDiagnosticOutput(action, output string, configuredArgs []string, re
 		output = output[:maxOutput] + " [truncada]"
 	}
 	return strings.TrimSpace(output)
+}
+
+func readYSFReflectorInfo(path string) YSFReflectorInfo {
+	info := YSFReflectorInfo{}
+	if path == "" {
+		path = "/etc/YSFreflector.ini"
+	}
+
+	file, err := os.Open(path)
+	if err == nil {
+		defer file.Close()
+		section := ""
+		configuredPort := ""
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
+				continue
+			}
+			if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+				section = strings.ToLower(strings.Trim(line, "[] "))
+				continue
+			}
+			key, value, found := strings.Cut(line, "=")
+			if !found {
+				continue
+			}
+			key = strings.ToLower(strings.TrimSpace(key))
+			value = strings.TrimSpace(value)
+			if section == "info" {
+				switch key {
+				case "id":
+					info.ID = value
+				case "name":
+					info.Name = value
+				}
+			}
+			if key == "port" {
+				configuredPort = value
+			}
+		}
+		info.Port = parseYSFActivePort(configuredPort)
+	}
+
+	if info.ID != "" || info.Name != "" || info.Port != "" {
+		info.Available = true
+	}
+	return info
+}
+
+func parseYSFActivePort(configuredPort string) string {
+	active := ""
+	for _, command := range [][]string{
+		{"netstat", "-tulpn"},
+		{"ss", "-H", "-lunp"},
+	} {
+		output, err := exec.Command(command[0], command[1:]...).CombinedOutput()
+		if err != nil {
+			continue
+		}
+		active = parseYSFActivePortOutput(string(output))
+		if active != "" {
+			break
+		}
+	}
+	if active != "" {
+		return active
+	}
+	port := strings.TrimSpace(configuredPort)
+	if portNumber, err := strconv.Atoi(port); err == nil && portNumber >= 42000 && portNumber <= 42009 {
+		return port
+	}
+	return ""
+}
+
+func parseYSFActivePortOutput(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(strings.ToLower(line))
+		if len(fields) == 0 {
+			continue
+		}
+		for _, field := range fields {
+			colon := strings.LastIndex(field, ":")
+			if colon < 0 {
+				continue
+			}
+			port, err := strconv.Atoi(strings.Trim(field[colon+1:], "[];,"))
+			if err == nil && port >= 42000 && port <= 42009 {
+				return strconv.Itoa(port)
+			}
+		}
+	}
+	return ""
+}
+
+var (
+	pysfLinkedHeaderRe = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+Currently linked repeaters/gateways:`)
+	pysfDataStartRe    = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(?:<[^>]+>\s+)?Received data from\s+([A-Z0-9\-/]+)\s+to\s+([A-Z0-9\-/]+)\s+at\s+([A-Z0-9\-/]+)`)
+	pysfDataEndRe      = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(?:<[^>]+>\s+)?Received end of transmission`)
+)
+
+type pysfINI struct {
+	ID, Name, Port, LogDir, LogRoot string
+}
+
+func readPYSFReflectorINI(path string) pysfINI {
+	info := pysfINI{}
+	if path == "" {
+		path = "/opt/pysfreflector/pysfreflector.ini"
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return info
+	}
+	defer file.Close()
+
+	section := ""
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, ";") || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.ToLower(strings.Trim(line, "[] "))
+			continue
+		}
+		key, value, found := strings.Cut(line, "=")
+		if !found {
+			continue
+		}
+		key = strings.ToLower(strings.TrimSpace(key))
+		value = strings.TrimSpace(value)
+		switch section {
+		case "info":
+			if key == "id" {
+				info.ID = value
+			}
+			if key == "name" {
+				info.Name = value
+			}
+		case "network":
+			if key == "port" {
+				info.Port = value
+			}
+		case "log":
+			if key == "filepath" {
+				info.LogDir = value
+			}
+			if key == "fileroot" {
+				info.LogRoot = value
+			}
+		}
+	}
+	return info
+}
+
+func isPYSFReflectorActive(serviceName string) bool {
+	if strings.TrimSpace(serviceName) == "" {
+		serviceName = "ysfreflector"
+	}
+	serviceName = strings.TrimSuffix(strings.TrimSpace(serviceName), ".service")
+	return exec.Command("systemctl", "is-active", "--quiet", serviceName+".service").Run() == nil
+}
+
+func findPYSFReflectorUnit(serviceName string) string {
+	if strings.TrimSpace(serviceName) == "" {
+		serviceName = "ysfreflector"
+	}
+	serviceName = strings.TrimSpace(strings.TrimSuffix(serviceName, ".service")) + ".service"
+	for _, dir := range []string{
+		"/etc/systemd/system",
+		"/run/systemd/system",
+		"/lib/systemd/system",
+		"/usr/lib/systemd/system",
+		"/opt/pysfreflector",
+	} {
+		path := filepath.Join(dir, serviceName)
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return ""
+}
+
+func readPYSFReflectorUnitIni(unitPath string) string {
+	if unitPath == "" {
+		return ""
+	}
+	data, err := os.ReadFile(unitPath)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "ExecStart=") {
+			continue
+		}
+		for _, field := range strings.Fields(strings.TrimPrefix(line, "ExecStart=")) {
+			if strings.HasSuffix(strings.ToLower(field), ".ini") {
+				return field
+			}
+		}
+	}
+	return ""
+}
+
+func readPYSFReflectorStatus(parent context.Context, cfg ReflectorConfig, now time.Time) PYSFReflectorData {
+	result := PYSFReflectorData{}
+	unitPath := findPYSFReflectorUnit(cfg.PYSFReflectorService)
+	iniPath := readPYSFReflectorUnitIni(unitPath)
+	if iniPath == "" {
+		iniPath = cfg.PYSFReflectorConfig
+	}
+	if iniPath == "" {
+		iniPath = "/opt/pysfreflector/pysfreflector.ini"
+	}
+	ini := readPYSFReflectorINI(iniPath)
+	if !isPYSFReflectorActive(cfg.PYSFReflectorService) {
+		return result
+	}
+	if ini.ID == "" && ini.Name == "" && ini.Port == "" {
+		return result
+	}
+
+	result.Available = true
+	result.ID = ini.ID
+	result.Name = ini.Name
+	result.Port = ini.Port
+	result.Connected = make([]YSFConnectedNow, 0)
+	result.LastHeard = make([]TXEntry, 0)
+
+	logDir := ini.LogDir
+	if logDir == "" {
+		logDir = "/var/log/mmdvm"
+	}
+	logRoot := ini.LogRoot
+	if logRoot == "" {
+		logRoot = "YSFReflector"
+	}
+
+	files := make([]string, 0)
+	exact := filepath.Join(logDir, logRoot+".log")
+	if _, err := os.Stat(exact); err == nil {
+		files = append(files, exact)
+	}
+	dated, err := candidateLogFiles(logDir, logRoot, now)
+	if err == nil {
+		files = append(files, dated...)
+	}
+
+	seenFiles := make(map[string]struct{})
+	var connectedTime time.Time
+	var connected []YSFConnectedNow
+	seenConnected := make(map[string]struct{})
+	inLinkedBlock := false
+	cutoff := now.Add(-24 * time.Hour)
+	var pending *activeYSFTx
+	tx := make([]TXEntry, 0)
+
+	for _, path := range files {
+		if _, exists := seenFiles[path]; exists {
+			continue
+		}
+		seenFiles[path] = struct{}{}
+		file, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimRight(scanner.Text(), "\r\n")
+			if m := pysfLinkedHeaderRe.FindStringSubmatch(line); len(m) == 2 {
+				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
+					connectedTime = ts
+					connected = nil
+					seenConnected = make(map[string]struct{})
+					inLinkedBlock = true
+				}
+				continue
+			}
+			if inLinkedBlock {
+				if m := ysfLinkedEntryRe.FindStringSubmatch(line); len(m) == 5 {
+					call := strings.TrimSpace(m[2])
+					addr := strings.TrimSpace(m[3])
+					key := call + "@" + addr
+					if _, exists := seenConnected[key]; !exists {
+						seenConnected[key] = struct{}{}
+						connected = append(connected, YSFConnectedNow{
+							Callsign: call,
+							IP:       m[4],
+							Type:     "Estación o gateway",
+							Since:    connectedTime.Format("03:04 PM"),
+						})
+					}
+					continue
+				}
+				inLinkedBlock = false
+			}
+			if m := pysfDataStartRe.FindStringSubmatch(line); len(m) == 5 {
+				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
+					pending = &activeYSFTx{
+						callsign: strings.TrimSpace(m[2]),
+						target:   strings.TrimSpace(m[3]),
+						gateway:  strings.TrimSpace(m[4]),
+						start:    ts,
+					}
+				}
+				continue
+			}
+			if m := pysfDataEndRe.FindStringSubmatch(line); len(m) == 2 {
+				if ts, err := parseLogTime(m[1], now.Location()); err == nil && pending != nil && ts.After(cutoff) {
+					secs := ts.Sub(pending.start).Seconds()
+					if secs >= 0 {
+						tx = append(tx, TXEntry{
+							Callsign:  pending.callsign,
+							Duration:  formatDurationSecs(secs),
+							Ago:       formatAgo(now.Sub(ts)),
+							Target:    strings.TrimSpace(pending.target),
+							Gateway:   strings.TrimSpace(pending.gateway),
+							timestamp: ts,
+						})
+					}
+					pending = nil
+				}
+			}
+		}
+		_ = file.Close()
+	}
+
+	result.Connected = connected
+	result.LastHeard = limitUniqueTX(tx, len(tx))
+	return result
 }
 
 func (s *ReflectorService) GetStatus(c echo.Context) error {
@@ -877,8 +1231,13 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		}
 	}
 
+	ysfReflectorInfo := readYSFReflectorInfo(cfg.YSFReflectorConfig)
+	pysfReflector := readPYSFReflectorStatus(c.Request().Context(), cfg, now)
+
 	resp := DashboardStatusResponse{
-		DVSwitchTitle: cfg.DVSwitchTitle,
+		DVSwitchTitle:    cfg.DVSwitchTitle,
+		YSFReflectorInfo: ysfReflectorInfo,
+		PYSFReflector:    pysfReflector,
 		Header: HeaderInfo{
 			Title: cfg.Title,
 			Subtitle: strings.NewReplacer("{ysf_reflector}", cfg.YSFReflector, "{tgif_tg}", cfg.TGIFTalkgroup).Replace(cfg.Subtitle) +

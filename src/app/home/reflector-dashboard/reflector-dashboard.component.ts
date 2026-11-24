@@ -55,6 +55,8 @@ export class ReflectorDashboardComponent implements OnInit {
   readonly pendingRetries = signal<{ target: string; attempts: number }[]>([]);
   readonly ysfConnectedPages = new TablePagination(computed(() => this.data()?.ysfConnected ?? []));
   readonly ysfLastHeardPages = new TablePagination(computed(() => this.data()?.ysfLastHeard ?? []));
+  readonly pysfConnectedPages = new TablePagination(computed(() => this.data()?.pysfReflector?.connected ?? []));
+  readonly pysfLastHeardPages = new TablePagination(computed(() => this.data()?.pysfReflector?.lastHeard ?? []));
   readonly echolinkConnectedPages = new TablePagination(computed(() => this.data()?.echolinkConnected ?? []));
   readonly pendingEchoLinkStationVisible = computed(() =>
     this.echolinkConnectedPages.rows().some(station => this.pendingStationAction(station.user) !== null)
@@ -118,7 +120,7 @@ export class ReflectorDashboardComponent implements OnInit {
 
   selectProfile(event: Event): void {
     for (const pagination of [this.ysfConnectedPages, this.ysfLastHeardPages, this.echolinkConnectedPages,
-      this.echolinkLastHeardPages, this.dvSwitchPages]) {
+      this.echolinkLastHeardPages, this.pysfConnectedPages, this.pysfLastHeardPages, this.dvSwitchPages]) {
       pagination.reset();
     }
     const profileId = (event.target as HTMLSelectElement).value;
