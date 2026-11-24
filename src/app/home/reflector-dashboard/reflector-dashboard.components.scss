@@ -206,6 +206,126 @@
   cursor: not-allowed;
 }
 
+.icon-action.mute-inactive { background: #166534; border-color: #86efac; color: #fff; }
+.icon-action.mute-active { background: #991b1b; border-color: #fca5a5; color: #fff; }
+
+.admin-menu {
+  position: relative;
+
+  summary {
+    padding: .5rem;
+    border: 1px solid #94a3b8;
+    background: #164e63;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+}
+
+.dropdown-panel {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  min-width: 13rem;
+  padding: .35rem;
+  border: 1px solid #64748b;
+  background: #131724;
+  display: grid;
+  gap: .25rem;
+
+  a, button {
+    display: block;
+    padding: .5rem;
+    text-align: left;
+    color: #e2e8f0;
+    background: #1e293b;
+    border: 0;
+    text-decoration: none;
+    cursor: pointer;
+  }
+}
+
+.admin-login-dialog {
+  box-sizing: border-box;
+  width: min(92vw, 22rem);
+  max-height: 90vh;
+  padding: 1.25rem;
+  border: 1px solid #2d3f4c;
+  border-radius: 8px;
+  background: #1a2630;
+  color: #dce5eb;
+
+  &::backdrop { background: rgb(0 0 0 / 60%); }
+  h2 { margin: 0 0 .75rem; padding-right: 2rem; font-size: 1.1rem; }
+  p { font-size: .875rem; }
+  form { display: grid; gap: .75rem; }
+  label { display: grid; gap: .25rem; font-size: .85rem; }
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: .45rem .6rem;
+    border: 1px solid #758a99;
+    border-radius: 5px;
+    background: #111a22;
+    color: inherit;
+    font: inherit;
+  }
+}
+
+.login-logo {
+  display: block;
+  width: 5rem;
+  height: 5rem;
+  margin: 0 auto .75rem;
+  object-fit: contain;
+}
+
+.login-close {
+  position: absolute;
+  top: .5rem;
+  right: .5rem;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #dce5eb;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.login-password {
+  position: relative;
+
+  input { padding-right: 2.75rem; }
+}
+
+.password-toggle {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 2.5rem;
+  border: 0;
+  background: transparent;
+  color: #dce5eb;
+  cursor: pointer;
+}
+
+.login-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  button {
+    padding: .4rem .75rem;
+    border: 1px solid #758a99;
+    border-radius: 5px;
+    background: #263641;
+    color: #dce5eb;
+    cursor: pointer;
+  }
+}
+
 .echolink-action-dialog {
   box-sizing: border-box;
   width: min(28rem, 95vw);
@@ -220,11 +340,11 @@
   &::backdrop { background: #000b; }
 }
 
-.echolink-action-menu {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-  margin-bottom: .75rem;
+.banned-stations {
+  list-style: none;
+  padding: 0;
+
+  li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .35rem 0; }
 }
 
 .echolink-action-error { color: #fca5a5; }

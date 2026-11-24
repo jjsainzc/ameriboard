@@ -277,6 +277,8 @@ type EchoLinkActionRequest struct {
 	Message  string `json:"message"`
 }
 
+var echoLinkTargetPattern = regexp.MustCompile(`^[A-Za-z0-9*][A-Za-z0-9*./:_-]{0,127}$`)
+
 func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request EchoLinkActionRequest) (string, error) {
 	s.mu.RLock()
 	command := s.cfg.EchoLinkCommand
@@ -293,39 +295,36 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 	callsign := strings.TrimSpace(request.Callsign)
 	args := append([]string{}, parts[1:]...)
 	action := strings.ToLower(strings.TrimSpace(request.Action))
+	if action == "connect" || action == "disconnect" || action == "ban" || action == "unban" || action == "mute" || action == "unmute" {
+		if !echoLinkTargetPattern.MatchString(callsign) || strings.EqualFold(callsign, "ALL") {
+			return "", errors.New("indicativo o destino inválido")
+		}
+	}
 	switch action {
 	case "connect":
-		if callsign == "" {
-			return "", errors.New("el indicativo de destino es obligatorio")
-		}
 		args = append(args, "connect", callsign)
 	case "disconnect":
-		if callsign == "" {
-			return "", errors.New("el indicativo a desconectar es obligatorio")
-		}
 		args = append(args, "disconnect", callsign)
 	case "ban":
-		if callsign == "" {
-			return "", errors.New("el indicativo a bloquear es obligatorio")
-		}
 		args = append(args, "ban", "add", callsign)
 		if ip := strings.TrimSpace(request.IP); ip != "" {
+			if !echoLinkTargetPattern.MatchString(ip) {
+				return "", errors.New("dirección o nombre inválido")
+			}
 			args = append(args, ip)
 		}
+	case "ban-list":
+		args = append(args, "ban", "list")
+	case "unban":
+		args = append(args, "ban", "delete", callsign)
 	case "mute":
-		if callsign == "" {
-			return "", errors.New("el indicativo a silenciar es obligatorio")
-		}
 		args = append(args, "mute", callsign)
 	case "unmute":
-		if callsign == "" {
-			return "", errors.New("el indicativo a desilenciar es obligatorio")
-		}
 		args = append(args, "unmute", callsign)
 	case "message":
 		message := strings.TrimSpace(request.Message)
-		if message == "" {
-			return "", errors.New("el mensaje es obligatorio")
+		if message == "" || len(message) > 900 || strings.ContainsAny(message, ";\r\n\x00") {
+			return "", errors.New("el mensaje debe contener hasta 900 bytes y no puede incluir punto y coma ni saltos de línea")
 		}
 		args = append(args, "message", message)
 	default:
@@ -335,6 +334,17 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, parts[0], args...).CombinedOutput()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		if len(lines) > 0 && strings.HasPrefix(strings.ToLower(strings.TrimSpace(lines[0])), "tlbcmd version") {
+			lines = lines[1:]
+		}
+		if len(lines) > 0 {
+			if code, codeErr := strconv.Atoi(strings.TrimSpace(lines[0])); codeErr == nil && code != 0 {
+				err = fmt.Errorf("theLinkBox devolvió el código %d", code)
+			}
+		}
+	}
 	diagnostic := echoLinkDiagnosticOutput(action, string(output), parts[1:], request)
 	if err != nil {
 		if ctx.Err() != nil {

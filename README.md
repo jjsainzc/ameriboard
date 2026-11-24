@@ -118,8 +118,14 @@ sesión en `echolink-history.json` dentro de `--state-dir` (por defecto
 conexión. El archivo conserva el inicio de sesiones activas para continuar el
 cálculo si se reinicia el servicio.
 
-Tras iniciar sesión como administrador, la tabla de conectados permite enviar
-acciones a EchoLink. Para acciones en perfiles remotos se requiere la contraseña
+Tras iniciar sesión como administrador con el botón **Admin**, el menú
+**Administración** permite gestionar sitios o cerrar sesión. En la tabla de
+conectados EchoLink se puede silenciar o reactivar audio (rojo indica silenciado,
+verde indica audio habilitado), desconectar y banear cada estación. Las opciones
+generales permiten conectar, enviar mensajes y consultar la lista de baneados
+para desbanear indicativos. Los mensajes no admiten punto y coma ni saltos de
+línea, para evitar que se interpreten como comandos adicionales.
+Para acciones en perfiles remotos se requiere la contraseña
 de administrador del sitio remoto; los tokens antiguos solo permiten consultar
 telemetría. Las solicitudes y los resultados de `tlbcmd` se registran en el
 servidor que ejecuta la acción; para perfiles remotos, revisa también los

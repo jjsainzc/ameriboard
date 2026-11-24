@@ -2,10 +2,18 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { ReflectorDashboardComponent } from './reflector-dashboard.component';
+import { parseBannedStations, ReflectorDashboardComponent } from './reflector-dashboard.component';
 import { ReflectorService } from '../../core/services/reflector.service';
 
 describe('ReflectorDashboardComponent', () => {
+  it('parses theLinkBox ban lists without treating errors as an empty list', () => {
+    expect(parseBannedStations('tlbcmd Version 0.56\n0\nbanned users:\nW1AW -\nKQ4ABC Nombre 192.0.2.1\n'))
+      .toEqual(['W1AW', 'KQ4ABC']);
+    expect(parseBannedStations('0\nThe banned list is empty.\n')).toEqual([]);
+    expect(() => parseBannedStations('0\nunexpected response')).toThrow();
+    expect(() => parseBannedStations('0\nbanned users:\nW1AW;shutdown -')).toThrow();
+  });
+
   it('paginates independently only above 25 rows and handles filtering and live updates', async () => {
     await TestBed.configureTestingModule({
       imports: [ReflectorDashboardComponent],
@@ -380,6 +388,107 @@ describe('ReflectorDashboardComponent', () => {
     http.verify();
   });
 
+    it('offers global actions, ban management and distinct mute states', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ReflectorDashboardComponent],
+        providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+      }).compileComponents();
+      const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+      fixture.detectChanges();
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush([]);
+      http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+      const status = {
+        header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+        stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
+        echolinkAvailable: true,
+        echolinkConnectedList: [
+          { number: '1', user: 'TEST1', attribute: '' },
+          { number: '2', user: 'TEST2', attribute: 'm' }
+        ]
+      };
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const panel = root.querySelector('[aria-labelledby="echolink-title"]')!;
+      expect(panel.querySelector('[aria-label="Mutear estación"]')?.classList.contains('mute-inactive')).toBe(true);
+      expect(panel.querySelector('[aria-label="Desmutear estación"]')?.classList.contains('mute-active')).toBe(true);
+      expect(panel.querySelectorAll('[aria-label="Banear estación"]')).toHaveLength(2);
+      const dialog = root.querySelector('#echolink-action-title')!.closest('dialog') as HTMLDialogElement;
+      dialog.showModal = vi.fn();
+      dialog.close = vi.fn();
+      const globalMenu = panel.querySelector('.admin-menu')!;
+      const buttons = Array.from(globalMenu.querySelectorAll('button'));
+      expect(buttons.map(button => button.textContent?.trim())).toEqual(['Conectar', 'Mensaje', 'Lista de baneados']);
+      buttons[2].click();
+      const listRequest = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
+      expect(listRequest.request.body).toEqual({ action: 'ban-list' });
+      listRequest.flush({ output: 'tlbcmd Version 0.56\n0\nbanned users:\nW1AW -\nKQ4ABC host.example\n' });
+      fixture.detectChanges();
+      expect(dialog.querySelectorAll('.banned-stations li')).toHaveLength(2);
+      (dialog.querySelector('.banned-stations button') as HTMLButtonElement).click();
+      const unban = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
+      expect(unban.request.body).toEqual({ action: 'unban', callsign: 'W1AW' });
+      unban.flush({ output: 'W1AW removed from the banned list.' });
+      http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'))
+        .flush({ output: '0\nbanned users:\nKQ4ABC host.example\n' });
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+      fixture.detectChanges();
+      expect(dialog.querySelector('.banned-stations')?.textContent).not.toContain('W1AW');
+      expect(dialog.querySelector('.banned-stations')?.textContent).toContain('KQ4ABC');
+      fixture.destroy();
+      http.verify();
+    });
+
+    it('opens the administrator login dialog and updates the menu after login', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ReflectorDashboardComponent],
+        providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+      }).compileComponents();
+      const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+      fixture.detectChanges();
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
+      http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+        header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+        stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 }
+      });
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const dialog = root.querySelector('#admin-dialog-title')!.closest('dialog') as HTMLDialogElement;
+      dialog.showModal = vi.fn();
+      dialog.close = vi.fn();
+      (Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Admin')!).click();
+      http.expectOne(request => request.url.endsWith('/api/admin/setup')).flush({ required: false });
+      fixture.detectChanges();
+      expect(dialog.querySelector('.login-logo')?.getAttribute('src')).toBe('ameriboard-icon.png');
+      const passwordInput = dialog.querySelector('#dashboard-admin-password') as HTMLInputElement;
+      expect(passwordInput.type).toBe('password');
+      (dialog.querySelector('[aria-label="Mostrar contraseña"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(passwordInput.type).toBe('text');
+      fixture.componentInstance.adminForm.patchValue({ password: 'password123' });
+      (dialog.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      const login = http.expectOne(request => request.url.endsWith('/api/admin/login'));
+      expect(login.request.body).toEqual({ password: 'password123' });
+      login.flush(null, { status: 204, statusText: 'No Content' });
+      http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+      fixture.detectChanges();
+      expect(root.querySelector('.site-selector .admin-menu')?.textContent).toContain('Administrar sitios');
+      expect(fixture.componentInstance.adminForm.value.password).toBe('');
+      (Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Cerrar sesión')!).click();
+      http.expectOne(request => request.url.endsWith('/api/admin/logout')).flush(null, { status: 204, statusText: 'No Content' });
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+        header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+        stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 }
+      });
+      http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+      fixture.detectChanges();
+      expect(root.querySelector('.site-selector .admin-menu')).toBeNull();
+      fixture.destroy();
+      http.verify();
+    });
   it('hides unavailable EchoLink and shows its attribute legend when available', async () => {
     await TestBed.configureTestingModule({
       imports: [ReflectorDashboardComponent],
@@ -411,12 +520,12 @@ describe('ReflectorDashboardComponent', () => {
     expect(echoPanels[0].querySelector('#echolink-title')).not.toBeNull();
     expect(echoPanels[1].querySelector('#echolink-history-title')).not.toBeNull();
     expect(echoPanels[1].textContent).toContain('Aún no hay desconexiones registradas.');
-    const dialog = fixture.nativeElement.querySelector('dialog') as HTMLDialogElement;
+    const dialog = fixture.nativeElement.querySelector('.echolink-legend') as HTMLDialogElement;
     const show = vi.fn();
     const close = vi.fn();
     dialog.showModal = show;
     dialog.close = close;
-    fixture.nativeElement.querySelector('[aria-haspopup="dialog"]').click();
+    fixture.nativeElement.querySelector('.echolink-actions [aria-haspopup="dialog"]').click();
     expect(show).toHaveBeenCalledOnce();
     expect(Array.from(dialog.querySelectorAll('tbody th')).map(cell => cell.textContent?.trim()))
       .toEqual(['A', 'a', 'B', 'C', 'c', 'F', 'f', 'K', 'L', 'M', 'm', 'P', 'R', 'S', 'T', 'u', 'x', '*', '0', '1', '!']);

@@ -51,3 +51,46 @@ func TestEchoLinkDiagnosticOutputRedactionAndLimit(t *testing.T) {
 		t.Fatalf("configured command output not withheld: %q", result)
 	}
 }
+
+func TestEchoLinkBanCommandsAndInputValidation(t *testing.T) {
+	command := filepath.Join(t.TempDir(), "tlbcmd")
+	if err := os.WriteFile(command, []byte("#!/bin/sh\nprintf '%s\\n' \"$@\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewReflectorService(ReflectorConfig{EchoLinkCommand: command})
+	for _, test := range []struct {
+		request EchoLinkActionRequest
+		want    string
+	}{
+		{EchoLinkActionRequest{Action: "ban-list"}, "ban\nlist"},
+		{EchoLinkActionRequest{Action: "unban", Callsign: "W1AW"}, "ban\ndelete\nW1AW"},
+	} {
+		output, err := service.ExecuteEchoLinkAction(context.Background(), test.request)
+		if err != nil || output != test.want {
+			t.Errorf("action %q: output=%q error=%v", test.request.Action, output, err)
+		}
+	}
+	for _, request := range []EchoLinkActionRequest{
+		{Action: "unban", Callsign: "W1AW;shutdown"},
+		{Action: "disconnect", Callsign: "ALL"},
+		{Action: "ban", Callsign: "W1AW", IP: "host;shutdown"},
+		{Action: "message", Message: "Hola;shutdown"},
+		{Action: "message", Message: "Hola\nshutdown"},
+	} {
+		if _, err := service.ExecuteEchoLinkAction(context.Background(), request); err == nil {
+			t.Errorf("accepted unsafe request: %+v", request)
+		}
+	}
+}
+
+func TestEchoLinkActionRejectsNonzeroProtocolCode(t *testing.T) {
+	command := filepath.Join(t.TempDir(), "tlbcmd")
+	if err := os.WriteFile(command, []byte("#!/bin/sh\nprintf 'tlbcmd Version 0.56\\n65536\\nerror\\n'\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	service := NewReflectorService(ReflectorConfig{EchoLinkCommand: command})
+	if _, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "ban-list"}); err == nil || !strings.Contains(err.Error(), "65536") {
+		t.Fatalf("protocol error not reported: %v", err)
+	}
+}
