@@ -284,6 +284,68 @@
     </details>
     }
 
+    @if (d.nxdnReflector.available) {
+    <details class="dashboard-section nxdn-section" open>
+      <summary class="dashboard-section-summary">
+        <span>NXDN</span>
+        <span class="section-reflector-info">TG {{ d.nxdnReflector.tg }} · puerto {{ d.nxdnReflector.port }}</span>
+      </summary>
+      <section class="tables-grid-top">
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2>Estaciones o gateways conectados NXDN</h2>
+            <span class="count-pill">{{ d.nxdnReflector.connected.length }}</span>
+          </div>
+          <app-table-pagination placement="top" label="estaciones NXDN conectadas" [pagination]="nxdnConnectedPages" />
+          <div class="table-responsive">
+            <table>
+              <thead><tr><th scope="col">Indicativo</th><th scope="col">IP:puerto</th><th scope="col">Gateway</th><th scope="col">Última lectura</th></tr></thead>
+              <tbody>
+                @for (station of nxdnConnectedPages.rows(); track $index) {
+                  <tr>
+                    <td data-label="Indicativo" class="callsign">{{ station.callsign }}</td>
+                    <td data-label="IP:puerto" class="mono">{{ station.ip }}</td>
+                    <td data-label="Gateway">{{ station.gateway }}</td>
+                    <td data-label="Última lectura" class="mono">{{ station.since }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="4" class="empty-msg">{{ nxdnConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay estaciones conectadas' }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-table-pagination label="estaciones NXDN conectadas" [pagination]="nxdnConnectedPages" />
+        </div>
+        <div class="panel-card">
+          <div class="panel-header">
+            <h2>{{ d.nxdnTitle }}</h2>
+            <span class="refresh-tag">Auto 5s</span>
+          </div>
+          <app-table-pagination placement="top" label="últimos escuchados NXDN" [pagination]="nxdnLastHeardPages" />
+          <div class="table-responsive">
+            <table>
+              <thead><tr><th scope="col">Hace</th><th scope="col">Indicativo</th><th scope="col">Destino</th><th scope="col">Gateway</th><th scope="col">Duración</th></tr></thead>
+              <tbody>
+                @for (item of nxdnLastHeardPages.rows(); track item.time + item.callsign) {
+                  <tr>
+                    <td data-label="Hace" class="mono">{{ item.time }}</td>
+                    <td data-label="Indicativo" class="callsign">{{ item.callsign }}</td>
+                    <td data-label="Destino">{{ item.target }}</td>
+                    <td data-label="Gateway">{{ item.gateway }}</td>
+                    <td data-label="Duración" class="mono">{{ item.duration }}</td>
+                  </tr>
+                } @empty {
+                  <tr><td colspan="5" class="empty-msg">{{ nxdnLastHeardPages.search() ? 'Sin resultados para la búsqueda' : 'Sin actividad reciente en NXDN' }}</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <app-table-pagination label="últimos escuchados NXDN" [pagination]="nxdnLastHeardPages" />
+        </div>
+      </section>
+    </details>
+    }
+
     @if (d.echolinkAvailable) {
     <details class="dashboard-section echolink-section" open>
       <summary class="dashboard-section-summary"><span>EchoLink</span></summary>

@@ -22,6 +22,14 @@ interface BackendStatusRaw {
     stations24h: number;
   };
   dvSwitchTitle?: string | null;
+  nxdnTitle?: string | null;
+  nxdnReflector?: {
+    available?: boolean;
+    tg?: string;
+    port?: string;
+    connected?: Array<{ callsign: string; ip: string; type: string; since: string }> | null;
+    lastHeard?: Array<{ callsign: string; duration: string; ago: string; target?: string; gateway?: string }> | null;
+  } | null;
   dvSwitchBridges?: DVSwitchBridge[] | null;
   ysfReflectorInfo?: { available?: boolean; id?: string; name?: string; description?: string; port?: string } | null;
   pysfReflector?: {
@@ -67,6 +75,7 @@ export interface SiteProfile {
     subtitle: string;
     badge: string;
     dvSwitchTitle?: string;
+    nxdnTitle?: string;
   } | null;
 }
 
@@ -230,6 +239,18 @@ export class ReflectorService {
           loss: '—'
         }))
       },
+      nxdnReflector: {
+        available: raw.nxdnReflector?.available === true,
+        tg: raw.nxdnReflector?.tg?.trim() || '—',
+        port: raw.nxdnReflector?.port?.trim() || '—',
+        connected: (raw.nxdnReflector?.connected ?? []).map(station => ({
+          callsign: station.callsign, ip: station.ip, gateway: station.type, since: station.since
+        })),
+        lastHeard: this.uniqueLastHeard(raw.nxdnReflector?.lastHeard ?? []).map(tx => ({
+          time: tx.ago, callsign: tx.callsign, target: tx.target || '—',
+          gateway: tx.gateway || '—', duration: tx.duration, loss: '—'
+        }))
+      },
       dmrAvailable: raw.dmrAvailable !== false,
       echolinkAvailable: raw.echolinkAvailable !== false,
       warnings: (raw.warnings ?? []).filter(warning =>
@@ -245,6 +266,7 @@ export class ReflectorService {
         stations24h: raw.stats.stations24h
       },
       dvSwitchTitle: raw.dvSwitchTitle?.trim() || 'Actividad digital vía DVSwitch',
+      nxdnTitle: raw.nxdnTitle?.trim() || 'Últimos escuchados NXDN',
       dvSwitchBridges: raw.dvSwitchBridges ?? [],
       ysfConnected,
       ysfLastHeard,

@@ -59,16 +59,16 @@ describe('SiteAdminComponent', () => {
       });
     fixture.detectChanges();
     component.mainSettingsForm.setValue({
-      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local'
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local'
     });
     component.saveMainSettings();
     const settingsUpdate = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/settings'));
     expect(settingsUpdate.request.body).toEqual({
-      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local'
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local'
     });
     expect(settingsUpdate.request.headers.get('X-Ameriboard-Request')).toBe('1');
     settingsUpdate.flush({
-      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local'
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local'
     });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Configuración principal guardada');
@@ -81,20 +81,20 @@ describe('SiteAdminComponent', () => {
     expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
     component.siteForm.setValue({
       name: 'Sitio', url: 'https://example.org/ameriboard', password: 'a secure password', visible: false,
-      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota'
+      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto'
     });
     component.save();
     const create = http.expectOne(request => request.method === 'POST' && request.url.endsWith('/api/admin/profiles'));
     expect(create.request.body.visible).toBe(false);
     expect(create.request.body.password).toBe('a secure password');
     expect(create.request.body.header).toEqual({
-      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota'
+      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto'
     });
     expect(create.request.headers.get('X-Ameriboard-Request')).toBe('1');
     create.flush({ id: '1', name: 'Sitio', url: 'https://example.org/ameriboard', visible: false });
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/profiles'))
       .flush([{ id: '1', name: 'Sitio', url: 'https://example.org/ameriboard', visible: false,
-        header: { title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota' } }]);
+        header: { title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto' } }]);
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/settings'))
       .flush({ title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local' });
     fixture.detectChanges();
@@ -108,11 +108,13 @@ describe('SiteAdminComponent', () => {
     expect(component.siteForm.value.password).toBe('');
     expect(component.siteForm.value.title).toBe('Mi reflector');
     expect(component.siteForm.value.dvSwitchTitle).toBe('Actividad remota');
+    expect(component.siteForm.value.nxdnTitle).toBe('NXDN remoto');
     component.save();
     const update = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/profiles/1'));
     expect(update.request.body.password).toBe('');
     expect(update.request.body.header.badge).toBe('Zona');
     expect(update.request.body.header.dvSwitchTitle).toBe('Actividad remota');
+    expect(update.request.body.header.nxdnTitle).toBe('NXDN remoto');
     update.flush('error', { status: 500, statusText: 'Error' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();

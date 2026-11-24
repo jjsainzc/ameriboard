@@ -88,6 +88,7 @@ type ReflectorConfig struct {
 	Subtitle             string
 	Badge                string
 	DVSwitchTitle        string
+	NXDNTitle            string
 	YSFReflector         string
 	YSFReflectorConfig   string
 	PYSFReflectorConfig  string
@@ -118,11 +119,12 @@ func NewReflectorService(cfg ReflectorConfig) *ReflectorService {
 	return service
 }
 
-func (s *ReflectorService) SetDashboardSettings(title, subtitle, dvSwitchTitle string) {
+func (s *ReflectorService) SetDashboardSettings(title, subtitle, dvSwitchTitle, nxdnTitle string) {
 	s.mu.Lock()
 	s.cfg.Title = title
 	s.cfg.Subtitle = subtitle
 	s.cfg.DVSwitchTitle = dvSwitchTitle
+	s.cfg.NXDNTitle = nxdnTitle
 	s.mu.Unlock()
 }
 
@@ -225,6 +227,8 @@ type CombinedActivity24h struct {
 type DashboardStatusResponse struct {
 	Header                HeaderInfo            `json:"header"`
 	DVSwitchTitle         string                `json:"dvSwitchTitle"`
+	NXDNTitle             string                `json:"nxdnTitle"`
+	NXDNReflector         NXDNReflectorData     `json:"nxdnReflector"`
 	YSFReflectorInfo      YSFReflectorInfo      `json:"ysfReflectorInfo"`
 	PYSFReflector         PYSFReflectorData     `json:"pysfReflector"`
 	Stats                 StatsInfo             `json:"stats"`
@@ -1264,9 +1268,16 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 
 	ysfReflectorInfo := readYSFReflectorInfo(cfg.YSFReflectorConfig)
 	pysfReflector := readPYSFReflectorStatus(c.Request().Context(), cfg, now)
+	nxdnReflector, nxdnErr := readNXDNReflectorStatus("/etc/NXDNReflector.ini", "/var/log", now)
+	if nxdnErr != nil {
+		c.Logger().Errorf("No se puede leer el reflector NXDN: %v", nxdnErr)
+		warnings = append(warnings, "No se puede leer el reflector NXDN.")
+	}
 
 	resp := DashboardStatusResponse{
 		DVSwitchTitle:    cfg.DVSwitchTitle,
+		NXDNTitle:        cfg.NXDNTitle,
+		NXDNReflector:    nxdnReflector,
 		YSFReflectorInfo: ysfReflectorInfo,
 		PYSFReflector:    pysfReflector,
 		Header: HeaderInfo{

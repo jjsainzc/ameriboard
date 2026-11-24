@@ -108,6 +108,14 @@ el proceso YSF en un socket UDP; de lo contrario se muestra `—`. Para pYSF se
 busca el INI en el `ExecStart` del servicio configurado y, si no se encuentra,
 se usa `pysf_reflector_config`; de él se leen nombre, ID, descripción, puerto y
 ruta de logs.
+Para NXDN se lee el TG de `/etc/NXDNReflector.ini` y los registros
+`/var/log/NXDNReflector-YYYY-MM-DD.log` o `/var/log/NXDNReflector.log`.
+El usuario del servicio necesita acceso de lectura. La sección aparece cuando
+existen el INI y al menos uno de esos registros; esto no confirma que el
+reflector esté activo. Las conexiones se reconstruyen a partir de las listas y
+los eventos disponibles en esos logs. Los últimos escuchados muestran la
+transmisión más reciente de cada indicativo en las últimas 24 horas, con
+duración desconocida si falta el final de transmisión.
 La fecha y hora DVSwitch se muestran en formato día/mes/año y en la zona
 horaria del servidor que genera los datos.
 Las tablas de conexiones y actividad muestran hasta 25 registros por página.
@@ -180,8 +188,9 @@ podrá crearlo. La contraseña local se guarda como hash; la sesión dura como
 máximo ocho horas y la cookie no es persistente.
 
 Después de iniciar sesión, la sección **Configuración principal** permite editar
-el título y el subtítulo del dashboard local, así como el título de la tabla
-DVSwitch. El encabezado de la sección colapsable sigue diciendo «DVSwitch».
+el título y el subtítulo del dashboard local, así como los títulos de las tablas
+DVSwitch y últimos escuchados NXDN. Los encabezados de las secciones colapsables
+siguen diciendo «DVSwitch» y «NXDN».
 Los cambios se aplican sin reiniciar el servicio y se guardan en el
 directorio de estado de Ameriboard; prevalecen sobre los valores del YAML o del
 entorno, sin modificar esos archivos.
@@ -205,7 +214,7 @@ accesibles únicamente al propietario del servicio. No incluya contraseñas en U
 
 Tras iniciar sesión, cree o edite los perfiles y elija su visibilidad.
 Opcionalmente, cada perfil permite definir el título, subtítulo y etiqueta de
-su cabecera en este dashboard, además de un título para la tabla DVSwitch. Los
+su cabecera en este dashboard, además de títulos para las tablas DVSwitch y NXDN. Los
 campos vacíos conservan los valores del sitio remoto; el estado del puente y la
 última lectura siempre proceden de ese sitio. Al personalizar el subtítulo se
 añade la última lectura del sitio. Estos cambios no modifican la configuración

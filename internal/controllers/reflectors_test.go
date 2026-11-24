@@ -36,6 +36,68 @@ func TestYSFReflectorInfoFromIni(t *testing.T) {
 	}
 }
 
+func TestNXDNReflectorConnectionsAndTraffic(t *testing.T) {
+	dir := t.TempDir()
+	ini := filepath.Join(dir, "NXDNReflector.ini")
+	if err := os.WriteFile(ini, []byte("[General]\nTG=8465\n[Network]\nPort=41400\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	log := `M: 2026-11-24 23:01:56.434 Currently linked repeaters:
+M: 2026-11-24 23:01:56.435     TEST1     : 192.0.2.1:57910 3/120
+M: 2026-11-24 23:01:56.435     TEST1     : 192.0.2.1:57278 4/120
+M: 2026-11-24 23:02:04.776 Adding HC1LNM     (192.0.2.2:57910)
+M: 2026-11-24 23:02:09.058 Removing HC1LNM     (192.0.2.2:57910) unlinked
+M: 2026-11-24 23:02:09.063 Adding HC1LNM     (192.0.2.2:57910)
+M: 2026-11-24 23:02:17.127 Transmission from HC1LNM at HC1LNM     to TG 8465
+M: 2026-11-24 23:02:20.529 Received end of transmission
+M: 2026-11-24 23:02:23.834 Transmission from HC1LNM at HC1LNM     to TG 8465
+M: 2026-11-24 23:02:25.832 Received end of transmission
+M: 2026-11-24 23:02:28.000 Removing TEST1     (192.0.2.1:57910) disappeared
+`
+	if err := os.WriteFile(filepath.Join(dir, "NXDNReflector-2026-11-24.log"), []byte(log), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 11, 24, 23, 2, 39, 0, time.UTC)
+	got, err := readNXDNReflectorStatus(ini, dir, now)
+	if err != nil || !got.Available || got.TG != "8465" || got.Port != "41400" {
+		t.Fatalf("NXDN status: %+v, %v", got, err)
+	}
+	if len(got.Connected) != 2 || got.Connected[0].Callsign != "HC1LNM" ||
+		got.Connected[1].Callsign != "TEST1" || got.Connected[1].IP != "192.0.2.1:57278" {
+		t.Fatalf("NXDN connections: %+v", got.Connected)
+	}
+	if len(got.LastHeard) != 1 || got.LastHeard[0].Callsign != "HC1LNM" ||
+		got.LastHeard[0].Gateway != "HC1LNM" || got.LastHeard[0].Target != "TG 8465" ||
+		got.LastHeard[0].Duration != "2s" || got.LastHeard[0].Ago != "hace 13s" {
+		t.Fatalf("NXDN last heard: %+v", got.LastHeard)
+	}
+}
+
+func TestNXDNReflectorSnapshotsAndIncompleteTraffic(t *testing.T) {
+	dir := t.TempDir()
+	ini := filepath.Join(dir, "NXDNReflector.ini")
+	if err := os.WriteFile(ini, []byte("[General]\nTG=8465\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	log := `M: 2026-11-23 23:59:58.000 Adding OLD (192.0.2.1:1000)
+M: 2026-11-24 00:00:00.000 Currently linked repeaters:
+M: 2026-11-24 00:00:00.001 NEW : 192.0.2.2:2000 0/120
+M: 2026-11-24 00:00:01.000 Transmission from NEW at NEW to TG 8465
+`
+	if err := os.WriteFile(filepath.Join(dir, "NXDNReflector.log"), []byte(log), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readNXDNReflectorStatus(ini, dir, time.Date(2026, 11, 24, 0, 0, 3, 0, time.UTC))
+	if err != nil || len(got.Connected) != 1 || got.Connected[0].Callsign != "NEW" ||
+		len(got.LastHeard) != 1 || got.LastHeard[0].Duration != "—" {
+		t.Fatalf("NXDN snapshot or incomplete transmission: %+v, %v", got, err)
+	}
+	missing, err := readNXDNReflectorStatus(filepath.Join(dir, "missing.ini"), dir, time.Now())
+	if err != nil || missing.Available {
+		t.Fatalf("missing NXDN source: %+v, %v", missing, err)
+	}
+}
+
 func TestYSFReflectorConfigCaseFallback(t *testing.T) {
 	dir := t.TempDir()
 	oldPath := filepath.Join(dir, "YSFreflector.ini")

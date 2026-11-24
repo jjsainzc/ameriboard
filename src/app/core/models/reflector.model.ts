@@ -75,6 +75,13 @@ export interface ReflectorDashboardData {
   ysfTrafficAvailable: boolean;
   ysfReflectorInfo: YsfReflectorInfo;
   pysfReflector: PysfReflectorData;
+  nxdnReflector: {
+    available: boolean;
+    tg: string;
+    port: string;
+    connected: YsfStation[];
+    lastHeard: YsfActivity[];
+  };
   dmrAvailable: boolean;
   echolinkAvailable: boolean;
   warnings: string[];
@@ -86,6 +93,7 @@ export interface ReflectorDashboardData {
     lastUpdate: string;
   };
   dvSwitchTitle: string;
+  nxdnTitle: string;
   dvSwitchBridges: DVSwitchBridge[];
   stats: {
     ysfConnectedCount: number;

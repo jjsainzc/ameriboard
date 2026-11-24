@@ -77,7 +77,7 @@ func run() error {
 		return nil
 	}
 	mainSettings, err := store.LoadMainSettings(profiles.MainSettings{
-		Title: cfg.Title, Subtitle: cfg.Subtitle, DVSwitchTitle: profiles.DefaultDVSwitchTitle,
+		Title: cfg.Title, Subtitle: cfg.Subtitle, DVSwitchTitle: profiles.DefaultDVSwitchTitle, NXDNTitle: profiles.DefaultNXDNTitle,
 	})
 	if err != nil {
 		return fmt.Errorf("cargar configuración principal guardada: %w", err)
@@ -90,7 +90,7 @@ func run() error {
 	}
 
 	reflector := controllers.NewReflectorService(controllers.ReflectorConfig{
-		Title: cfg.Title, Subtitle: cfg.Subtitle, Badge: cfg.Badge, DVSwitchTitle: mainSettings.DVSwitchTitle,
+		Title: cfg.Title, Subtitle: cfg.Subtitle, Badge: cfg.Badge, DVSwitchTitle: mainSettings.DVSwitchTitle, NXDNTitle: mainSettings.NXDNTitle,
 		YSFReflector: cfg.YSFReflector, TGIFTalkgroup: cfg.TGIFTalkgroup,
 		YSFReflectorConfig:   cfg.YSFReflectorConfig,
 		PYSFReflectorConfig:  cfg.PYSFReflectorConfig,
@@ -108,7 +108,7 @@ func run() error {
 		})
 	})
 	sites.SetMainSettings(mainSettings, func(settings profiles.MainSettings) {
-		reflector.SetDashboardSettings(settings.Title, settings.Subtitle, settings.DVSwitchTitle)
+		reflector.SetDashboardSettings(settings.Title, settings.Subtitle, settings.DVSwitchTitle, settings.NXDNTitle)
 	})
 	defer reflector.Close()
 	e := newServer(basePath, frontend, reflector, sites)

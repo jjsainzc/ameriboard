@@ -52,3 +52,31 @@ udp        0      0 0.0.0.0:42001           0.0.0.0:*                           
 generalmente los puertos asignados para estos reflectores de YSF son del 42000 - 4200X
 
 - [x] 8. Hacer las secciones para agrupar las tablas de forma colapsable como las que tiene el Amerimon.
+
+- [ ] 9. Incorporar las tarjetas y ultimos escuchados para un reflector NXDN, el ini esta en `/etc/NXDNReflector.ini` los logs estan en `/var/log/NXDNReflector-YYYY-MM-DD.log` o `/var/log/NXDNReflector.log`
+Ejemplo del log
+```
+M: 2026-11-24 00:01:56.434 Currently linked repeaters:
+M: 2026-11-24 00:01:56.435     N6JET     : 5.161.215.224:3980 0/120
+M: 2026-11-24 00:01:56.435     KJ4GNU    : 108.86.168.93:57910 3/120
+M: 2026-11-24 00:01:56.435     HI3ACS    : 181.36.184.30:57910 3/120
+M: 2026-11-24 00:01:56.435     KQ4HPI    : 57.135.192.137:57910 3/120
+M: 2026-11-24 00:01:56.435     N2AST     : 148.74.218.1:57910 2/120
+M: 2026-11-24 00:03:56.439 Currently linked repeaters:
+M: 2026-11-24 00:03:56.439     N6JET     : 5.161.215.224:3980 0/120
+M: 2026-11-24 00:03:56.439     KJ4GNU    : 108.86.168.93:57910 3/120
+M: 2026-11-24 00:03:56.439     HI3ACS    : 181.36.184.30:57910 2/120
+M: 2026-11-24 00:03:56.439     KQ4HPI    : 57.135.192.137:57910 2/120
+M: 2026-11-24 00:03:56.439     N2AST     : 148.74.218.1:57910 2/120
+M: 2026-11-24 00:05:06.975 Adding KQ4HPI     (57.135.192.137:57278)
+M: 2026-11-24 00:05:56.449 Currently linked repeaters:
+M: 2026-11-24 00:05:56.449     N6JET     : 5.161.215.224:3980 0/120
+M: 2026-11-24 00:05:56.449     KJ4GNU    : 108.86.168.93:57910 3/120
+M: 2026-11-24 00:05:56.449     HI3ACS    : 181.36.184.30:57910 2/120
+M: 2026-11-24 00:05:56.449     KQ4HPI    : 57.135.192.137:57910 97/120
+M: 2026-11-24 00:05:56.449     N2AST     : 148.74.218.1:57910 2/120
+M: 2026-11-24 00:05:56.449     KQ4HPI    : 57.135.192.137:57278 4/120
+M: 2026-11-24 00:06:18.702 Removing KQ4HPI     (57.135.192.137:57910) disappeared
+``` 
+Diferenciar las  tarjetas de reflectores con diferentes colores o algo similar entre YSF - NXDN - ECHOLINK y DVSwitch
+

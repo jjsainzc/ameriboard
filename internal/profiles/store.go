@@ -33,14 +33,17 @@ type ProfileHeader struct {
 	Subtitle      string `json:"subtitle"`
 	Badge         string `json:"badge"`
 	DVSwitchTitle string `json:"dvSwitchTitle,omitempty"`
+	NXDNTitle     string `json:"nxdnTitle,omitempty"`
 }
 
 const DefaultDVSwitchTitle = "Actividad digital vía DVSwitch"
+const DefaultNXDNTitle = "Últimos escuchados NXDN"
 
 type MainSettings struct {
 	Title         string `json:"title"`
 	Subtitle      string `json:"subtitle"`
 	DVSwitchTitle string `json:"dvSwitchTitle"`
+	NXDNTitle     string `json:"nxdnTitle"`
 }
 
 type Store struct {
@@ -97,12 +100,17 @@ func validateMainSettings(settings *MainSettings) error {
 	settings.Title = strings.TrimSpace(settings.Title)
 	settings.Subtitle = strings.TrimSpace(settings.Subtitle)
 	settings.DVSwitchTitle = strings.TrimSpace(settings.DVSwitchTitle)
+	settings.NXDNTitle = strings.TrimSpace(settings.NXDNTitle)
 	if settings.DVSwitchTitle == "" {
 		settings.DVSwitchTitle = DefaultDVSwitchTitle
 	}
+	if settings.NXDNTitle == "" {
+		settings.NXDNTitle = DefaultNXDNTitle
+	}
 	if settings.Title == "" || utf8.RuneCountInString(settings.Title) > 200 ||
 		utf8.RuneCountInString(settings.Subtitle) > 500 ||
-		utf8.RuneCountInString(settings.DVSwitchTitle) > 200 {
+		utf8.RuneCountInString(settings.DVSwitchTitle) > 200 ||
+		utf8.RuneCountInString(settings.NXDNTitle) > 200 {
 		return errInvalidMainSettings
 	}
 	return nil
@@ -260,7 +268,8 @@ func validProfile(p Profile) error {
 	}
 	if p.Header != nil && (utf8.RuneCountInString(p.Header.Title) > 200 ||
 		utf8.RuneCountInString(p.Header.Subtitle) > 500 || utf8.RuneCountInString(p.Header.Badge) > 100 ||
-		utf8.RuneCountInString(p.Header.DVSwitchTitle) > 200) {
+		utf8.RuneCountInString(p.Header.DVSwitchTitle) > 200 ||
+		utf8.RuneCountInString(p.Header.NXDNTitle) > 200) {
 		return fmt.Errorf("%w: cabecera demasiado larga", errInvalidProfile)
 	}
 	return nil
@@ -301,6 +310,7 @@ func (s *Store) save(p Profile, id string) (Profile, error) {
 		p.Header.Subtitle = strings.TrimSpace(p.Header.Subtitle)
 		p.Header.Badge = strings.TrimSpace(p.Header.Badge)
 		p.Header.DVSwitchTitle = strings.TrimSpace(p.Header.DVSwitchTitle)
+		p.Header.NXDNTitle = strings.TrimSpace(p.Header.NXDNTitle)
 	}
 	if err := validProfile(p); err != nil {
 		return Profile{}, err

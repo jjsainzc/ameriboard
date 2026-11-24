@@ -91,6 +91,12 @@ describe('ReflectorDashboardComponent', () => {
       ysfConnectedList: [{ callsign: 'TEST1', ip: '192.0.2.1', type: 'Gateway', since: '10:00' }],
       ysfLastTx: [{ callsign: 'TEST1', duration: '5s', ago: '1m' }],
       dmrLastTx: [{ callsign: 'TEST1', duration: '5s', ago: '1m' }],
+      nxdnTitle: 'Actividad NXDN personalizada',
+      nxdnReflector: {
+        available: true, tg: '8465', port: '41400',
+        connected: [{ callsign: 'TEST1', ip: '192.0.2.1:57910', type: 'Gateway', since: '10:00' }],
+        lastHeard: [{ callsign: 'TEST1', duration: '2s', ago: 'hace 13s', target: 'TG 8465', gateway: 'TEST1' }]
+      },
       dvSwitchLastTx: [
         { rxTime: '11-23 05:00:55', mode: 'P25', callsign: 'TEST1', name: '—', target: 'TG 740', source: 'Net', duration: '2.7', loss: '—', ber: '—' },
         { rxTime: '11-23 04:59:10', mode: 'YSF', callsign: 'TEST2', name: '—', target: 'TG 74001', source: 'LNet', duration: '—', loss: '—', ber: '—' },
@@ -105,11 +111,20 @@ describe('ReflectorDashboardComponent', () => {
     });
     fixture.detectChanges();
     const tables = fixture.nativeElement.querySelectorAll('table') as NodeListOf<HTMLTableElement>;
-    expect(tables).toHaveLength(6);
+    expect(tables).toHaveLength(8);
     expect(Array.from(tables[0].querySelectorAll('thead th'), th => th.textContent?.trim()))
       .toEqual(['Indicativo', 'IP', 'Gateway', 'Última lectura']);
     expect(Array.from(tables[1].querySelectorAll('thead th'), th => th.textContent?.trim()))
       .toEqual(['Hace', 'Indicativo', 'Destino', 'Gateway', 'Duración', 'Pérdida']);
+    const nxdnSection = fixture.nativeElement.querySelector('.nxdn-section') as HTMLDetailsElement;
+    expect(nxdnSection.querySelector('summary')?.textContent).toContain('NXDN');
+    expect(nxdnSection.querySelector('summary')?.textContent).not.toContain('Actividad NXDN personalizada');
+    expect(nxdnSection.querySelectorAll('.panel-header h2')[1].textContent?.trim()).toBe('Actividad NXDN personalizada');
+    expect(nxdnSection.textContent).toContain('192.0.2.1:57910');
+    expect(nxdnSection.textContent).toContain('TG 8465');
+    nxdnSection.open = false;
+    fixture.detectChanges();
+    expect(nxdnSection.open).toBe(false);
     expect(fixture.nativeElement.querySelector('.header-badges')).toBeNull();
     expect(Array.from(fixture.nativeElement.querySelectorAll('.bridge-badge') as NodeListOf<HTMLElement>,
       badge => badge.textContent?.trim())).toEqual([

@@ -16,20 +16,21 @@ func TestProfileHeaderOverrides(t *testing.T) {
 	store := NewStore(dir)
 	profile, err := store.save(Profile{
 		Name: "Sitio", URL: "https://example.org/ameriboard", Token: strings.Repeat("x", 64),
-		Visible: true, Header: &ProfileHeader{Title: "Título propio", Badge: "Local", DVSwitchTitle: "Actividad del sitio"},
+		Visible: true, Header: &ProfileHeader{Title: "Título propio", Badge: "Local", DVSwitchTitle: "Actividad del sitio", NXDNTitle: "NXDN del sitio"},
 	}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	stored, err := NewStore(dir).list()
 	if err != nil || len(stored) != 1 || stored[0].Header == nil ||
-		stored[0].Header.Title != "Título propio" || stored[0].Header.DVSwitchTitle != "Actividad del sitio" {
+		stored[0].Header.Title != "Título propio" || stored[0].Header.DVSwitchTitle != "Actividad del sitio" ||
+		stored[0].Header.NXDNTitle != "NXDN del sitio" {
 		t.Fatalf("header not persisted: %+v, %v", stored, err)
 	}
 	h := NewHandler(store)
 	h.client.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(
-			`{"header":{"title":"Original","subtitle":"Remoto","badge":"Antigua","localBridgeStatus":"En línea","lastUpdate":"12:34"},"dvSwitchTitle":"Actividad digital vía DVSwitch","stats":{"ysfTx24h":42}}`))}, nil
+			`{"header":{"title":"Original","subtitle":"Remoto","badge":"Antigua","localBridgeStatus":"En línea","lastUpdate":"12:34"},"dvSwitchTitle":"Actividad digital vía DVSwitch","nxdnTitle":"NXDN remoto","stats":{"ysfTx24h":42}}`))}, nil
 	})
 	e := echo.New()
 	h.Register(e.Group(""), "", func(c echo.Context) error { return c.NoContent(200) })
@@ -53,7 +54,7 @@ func TestProfileHeaderOverrides(t *testing.T) {
 	if header["title"] != "Título propio" || header["subtitle"] != "Remoto" || header["badge"] != "Local" ||
 		header["localBridgeStatus"] != "En línea" || header["lastUpdate"] != "12:34" ||
 		string(result["stats"]) != `{"ysfTx24h":42}` ||
-		string(result["dvSwitchTitle"]) != `"Actividad del sitio"` {
+		string(result["dvSwitchTitle"]) != `"Actividad del sitio"` || string(result["nxdnTitle"]) != `"NXDN del sitio"` {
 		t.Fatalf("unexpected overridden response: %s", result)
 	}
 	updated, err := store.save(Profile{Name: "Sitio", URL: profile.URL, Visible: true}, profile.ID)
@@ -70,6 +71,9 @@ func TestProfileHeaderOverrides(t *testing.T) {
 	result = fetch()
 	if string(result["dvSwitchTitle"]) != `"Actividad digital vía DVSwitch"` {
 		t.Fatalf("empty DVSwitch title override should use the remote title: %s", result["dvSwitchTitle"])
+	}
+	if string(result["nxdnTitle"]) != `"NXDN remoto"` {
+		t.Fatalf("empty NXDN title override should use the remote title: %s", result["nxdnTitle"])
 	}
 	if _, err := applyHeaderOverrides([]byte(`{"header":null}`), ProfileHeader{Title: "Test"}); err == nil {
 		t.Fatal("accepted invalid remote header")

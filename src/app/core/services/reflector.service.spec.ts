@@ -48,6 +48,8 @@ describe('ReflectorService', () => {
       ysfConnectedCount: 1, ysfTx24h: 2, dmrTx24h: 3, dvSwitchTx24h: 7, stations24h: 4
     });
     expect(service.data()?.dvSwitchTitle).toBe('Actividad personalizada');
+    expect(service.data()?.nxdnReflector.available).toBe(false);
+    expect(service.data()?.nxdnTitle).toBe('Últimos escuchados NXDN');
     expect(service.data()?.dvSwitchBridges).toEqual([{ modeA: 'DMR', modeB: 'YSF' }]);
     expect(service.data()?.ysfConnected[0]).toEqual({ callsign: 'TEST1', ip: '192.0.2.1', gateway: 'Gateway', since: '10:00' });
     expect(service.data()?.ysfLastHeard[0].loss).toBe('—');

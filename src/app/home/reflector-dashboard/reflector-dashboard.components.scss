@@ -16,11 +16,19 @@
 }
 
 .dashboard-section {
+  --section-accent: #38bdf8;
   background: #131724;
-  border: 1px solid #1e2538;
+  border: 1px solid var(--section-accent);
   border-radius: 12px;
   overflow: hidden;
 }
+
+.ysf-section, .pysf-section { --section-accent: #38bdf8; }
+.nxdn-section { --section-accent: #fbbf24; }
+.echolink-section { --section-accent: #c4b5fd; }
+.dvswitch-section { --section-accent: #34d399; }
+
+.dashboard-section .panel-card { border-color: var(--section-accent); }
 
 .dashboard-section-summary {
   min-height: 3rem;
@@ -47,10 +55,10 @@
     justify-content: center;
     width: 1.75rem;
     height: 1.75rem;
-    border: 1px solid #38bdf8;
+    border: 1px solid var(--section-accent);
     border-radius: 4px;
     background: #0f172a;
-    color: #38bdf8;
+    color: var(--section-accent);
     font-size: 1rem;
     line-height: 1;
   }
@@ -59,7 +67,7 @@
     content: '▸';
   }
 
-  &:focus-visible { outline: 2px solid #38bdf8; outline-offset: -2px; }
+  &:focus-visible { outline: 2px solid var(--section-accent); outline-offset: -2px; }
 }
 
 .section-reflector-info {

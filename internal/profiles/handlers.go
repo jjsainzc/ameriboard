@@ -583,7 +583,7 @@ func (h *Handler) profileStatus(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusBadGateway, "Respuesta inválida del sitio remoto")
 		}
 		if p.Header != nil && (p.Header.Title != "" || p.Header.Subtitle != "" ||
-			p.Header.Badge != "" || p.Header.DVSwitchTitle != "") {
+			p.Header.Badge != "" || p.Header.DVSwitchTitle != "" || p.Header.NXDNTitle != "") {
 			data, err = applyHeaderOverrides(data, *p.Header)
 			if err != nil {
 				return echo.NewHTTPError(http.StatusBadGateway, "Cabecera inválida del sitio remoto").SetInternal(err)
@@ -627,6 +627,13 @@ func applyHeaderOverrides(data []byte, overrides ProfileHeader) ([]byte, error) 
 			return nil, err
 		}
 		response["dvSwitchTitle"] = encoded
+	}
+	if overrides.NXDNTitle != "" {
+		encoded, err := json.Marshal(overrides.NXDNTitle)
+		if err != nil {
+			return nil, err
+		}
+		response["nxdnTitle"] = encoded
 	}
 	encodedHeader, err := json.Marshal(header)
 	if err != nil {
