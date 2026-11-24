@@ -14,6 +14,9 @@ func TestDefaultsUseGenericDashboardHeader(t *testing.T) {
 		cfg.Badge != "" || cfg.BridgeCall != "" {
 		t.Fatalf("dashboard defaults are not generic: title=%q subtitle=%q", cfg.Title, cfg.Subtitle)
 	}
+	if cfg.YSFReflectorConfig != "/etc/YSFReflector.ini" {
+		t.Fatalf("unexpected YSF configuration path: %q", cfg.YSFReflectorConfig)
+	}
 }
 
 func TestInitialChoosesFreePortAndMigratesSettings(t *testing.T) {

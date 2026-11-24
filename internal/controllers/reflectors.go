@@ -436,10 +436,17 @@ func echoLinkDiagnosticOutput(action, output string, configuredArgs []string, re
 func readYSFReflectorInfo(path string) YSFReflectorInfo {
 	info := YSFReflectorInfo{}
 	if path == "" {
-		path = "/etc/YSFreflector.ini"
+		path = "/etc/YSFReflector.ini"
 	}
 
-	file, err := os.Open(path)
+	alternate := ""
+	switch path {
+	case "/etc/YSFreflector.ini":
+		alternate = "/etc/YSFReflector.ini"
+	case "/etc/YSFReflector.ini":
+		alternate = "/etc/YSFreflector.ini"
+	}
+	file, err := openYSFReflectorConfig(path, alternate)
 	if err == nil {
 		defer file.Close()
 		section := ""
@@ -470,6 +477,11 @@ func readYSFReflectorInfo(path string) YSFReflectorInfo {
 				}
 			}
 		}
+		if err := scanner.Err(); err != nil {
+			log.Printf("YSF: no se pudo leer el INI: %v", err)
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		log.Printf("YSF: no se pudo abrir el INI: %v", err)
 	}
 	info.Port = parseYSFActivePort()
 
@@ -477,6 +489,14 @@ func readYSFReflectorInfo(path string) YSFReflectorInfo {
 		info.Available = true
 	}
 	return info
+}
+
+func openYSFReflectorConfig(path, alternate string) (*os.File, error) {
+	file, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) && alternate != "" {
+		return os.Open(alternate)
+	}
+	return file, err
 }
 
 func parseYSFActivePort() string {

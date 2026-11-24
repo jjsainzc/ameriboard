@@ -45,7 +45,7 @@ func Defaults(getenv func(string) string) Config {
 		Subtitle:             get("DASHBOARD_SUBTITLE", "Panel de monitoreo de YSF, EchoLink y DVSwitch"),
 		Badge:                get("DASHBOARD_BADGE", ""),
 		YSFReflector:         get("YSF_REFLECTOR_ID", "74001"),
-		YSFReflectorConfig:   get("YSF_REFLECTOR_CONFIG", "/etc/YSFreflector.ini"),
+		YSFReflectorConfig:   get("YSF_REFLECTOR_CONFIG", "/etc/YSFReflector.ini"),
 		PYSFReflectorConfig:  get("PYSF_REFLECTOR_CONFIG", "/opt/pysfreflector/pysfreflector.ini"),
 		PYSFReflectorService: get("PYSF_REFLECTOR_SERVICE", "ysfreflector"),
 		TGIFTalkgroup:        get("TGIF_TG", "7401"),

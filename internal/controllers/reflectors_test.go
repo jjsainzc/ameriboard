@@ -15,7 +15,7 @@ import (
 )
 
 func TestYSFReflectorInfoFromIni(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "YSFreflector.ini")
+	path := filepath.Join(t.TempDir(), "YSFReflector.ini")
 	if err := os.WriteFile(path, []byte("[Info]\n#Id=31645\n#Name=US EAGLES\n#Description=Florida Eagles\nId=74002\nName=EC ECUADOR\nDescription=C4FM\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -33,6 +33,31 @@ func TestYSFReflectorInfoFromIni(t *testing.T) {
 	}
 	if got := parseYSFActivePortOutput("udp 0 0 0.0.0.0:42001 0.0.0.0:* 160708/python3\n"); got != "" {
 		t.Fatalf("python port mistaken for YSF port: %q", got)
+	}
+}
+
+func TestYSFReflectorConfigCaseFallback(t *testing.T) {
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "YSFreflector.ini")
+	newPath := filepath.Join(dir, "YSFReflector.ini")
+	if err := os.WriteFile(newPath, []byte("[Info]\nName=EC ECUADOR\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	file, err := openYSFReflectorConfig(oldPath, newPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+	if err := os.WriteFile(oldPath, []byte("[Info]\nName=Otro\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	file, err = openYSFReflectorConfig(oldPath, newPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if file.Name() != oldPath {
+		t.Fatalf("configured file was not preferred: %q", file.Name())
 	}
 }
 

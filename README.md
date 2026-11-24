@@ -75,7 +75,7 @@ entorno.
 | `tgif_talkgroup` | `TGIF_TG` | `7401` |
 | `bridge_callsign` | `BRIDGE_CALLSIGN` | vacío (compatibilidad) |
 | `ysf_log_dir` | `YSF_LOG_DIR` | `/var/log/YSFReflector` |
-| `ysf_reflector_config` | `YSF_REFLECTOR_CONFIG` | `/etc/YSFreflector.ini` |
+| `ysf_reflector_config` | `YSF_REFLECTOR_CONFIG` | `/etc/YSFReflector.ini` |
 | `pysf_reflector_config` | `PYSF_REFLECTOR_CONFIG` | `/opt/pysfreflector/pysfreflector.ini` |
 | `pysf_reflector_service` | `PYSF_REFLECTOR_SERVICE` | `ysfreflector` |
 | `dmr_log_dir` | `DMR_LOG_DIR` | `/var/log/mmdvm` |
@@ -101,7 +101,9 @@ y solo presenta las modalidades que aparecen en el log configurado en
 red (`received ...`/`end of transmission`). Nombre y origen se muestran como
 `—` si el log no los proporciona; pérdida y BER se completan cuando están presentes.
 El encabezado YSF toma el nombre, ID y descripción de `[Info]` en
-`ysf_reflector_config`. Su puerto se muestra solo si `netstat` o `ss` identifica
+`ysf_reflector_config`. Las rutas predeterminadas `/etc/YSFReflector.ini` y
+`/etc/YSFreflector.ini` se admiten para instalaciones existentes; si la ruta
+configurada no existe, se intenta la otra. Su puerto se muestra solo si `netstat` o `ss` identifica
 el proceso YSF en un socket UDP; de lo contrario se muestra `—`. Para pYSF se
 busca el INI en el `ExecStart` del servicio configurado y, si no se encuentra,
 se usa `pysf_reflector_config`; de él se leen nombre, ID, descripción, puerto y

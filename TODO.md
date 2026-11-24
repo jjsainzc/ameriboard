@@ -34,7 +34,7 @@ M: 2026-11-23 10:00:58.386 P25, TX state = OFF
 
 - [x] 5. Siguiendo las instrucciones de este manual /home/hc1lnm/Documents/AngularPro/ameriboard/doc/tlbcmd-commands.txt implementar en la tabla de echolink, para administradores, en la misma tabla de echolink, crear una columna de acciones con iconos que se activan o se desactivan por ejemmplo para las opciones mutear/desmutear, para desconectar una X, para las demas opciones poner un menu desplegable que permita las operaciones usando ventanas flotantes, cuando sean necesario, en principio implementar connect,disconnect, ban, mute, message
 
-- [x] 6. Poner en el encabezado de la tabla de YSF el nombre, numero y puerto activo del reflector que se toma en `/etc/YSFreflector.ini` esta es una de las versiones de ese reflector., normalmente la conexiones que se hacen localmente son puentes.
+- [x] 6. Poner en el encabezado de la tabla de YSF el nombre, numero y puerto activo del reflector que se toma en `/etc/YSFReflector.ini` esta es una de las versiones de ese reflector., normalmente la conexiones que se hacen localmente son puentes.
 Como no hay una instalacion aca de ese file, dejo un ejemplo de donde se debe tomar los datos:
 ```
 [Info]
