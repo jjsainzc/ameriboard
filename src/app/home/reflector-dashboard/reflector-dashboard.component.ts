@@ -42,6 +42,7 @@ export class ReflectorDashboardComponent implements OnInit {
   });
   readonly echolinkActionBusy = signal(false);
   readonly pendingEchoLinkAction = signal<{ action: 'connect' | 'disconnect'; callsign: string } | null>(null);
+  readonly pendingPermanentConnections = signal<{ profileId: string; callsign: string }[]>([]);
   readonly echolinkActionNotice = signal('');
   readonly echolinkActionError = signal('');
   readonly selectedProfileId = signal('');
@@ -58,6 +59,14 @@ export class ReflectorDashboardComponent implements OnInit {
   readonly pendingEchoLinkStationVisible = computed(() =>
     this.echolinkConnectedPages.rows().some(station => this.pendingStationAction(station.user) !== null)
   );
+  readonly visiblePendingPermanentConnections = computed(() => {
+    const profileId = this.selectedProfileId();
+    const connected = new Set((this.data()?.echolinkConnected ?? [])
+      .map(station => station.user.trim().toUpperCase()));
+    return this.pendingPermanentConnections().filter(connection =>
+      connection.profileId === profileId && !connected.has(connection.callsign.toUpperCase())
+    );
+  });
   readonly echolinkLastHeardPages = new TablePagination(computed(() => this.data()?.echolinkLastHeard ?? []), station => [
     station.callsign, station.duration, station.disconnectedAt,
     new DatePipe('en-US').transform(station.disconnectedAt, 'dd/MM/yyyy HH:mm:ss') ?? ''
@@ -89,7 +98,14 @@ export class ReflectorDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.reflectorService.selectProfile('');
-    this.reflectorService.pollStatus(5000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe();
+    this.reflectorService.pollStatus(5000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(status => {
+      if (!status) { return; }
+      const connected = new Set(status.echolinkConnected.map(station => station.user.trim().toUpperCase()));
+      const profileId = this.selectedProfileId();
+      this.pendingPermanentConnections.update(pending => pending.filter(connection =>
+        connection.profileId !== profileId || !connected.has(connection.callsign.toUpperCase())
+      ));
+    });
     this.reflectorService.getProfiles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: profiles => this.profiles.set(profiles),
       error: () => this.profilesError.set('No se pudo cargar la lista de sitios; el dashboard local sigue disponible.')
@@ -269,6 +285,19 @@ export class ReflectorDashboardComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: response => {
           this.echolinkActionBusy.set(false);
+          if (action === 'connect' && body?.['permanent'] === true && callsign.trim()) {
+            this.pendingPermanentConnections.update(pending => [
+              ...pending.filter(connection =>
+                connection.profileId !== profileId || connection.callsign.toUpperCase() !== callsign.trim().toUpperCase()
+              ),
+              { profileId, callsign: callsign.trim() }
+            ]);
+          }
+          if (action === 'retry-cancel' || action === 'disconnect') {
+            this.pendingPermanentConnections.update(pending => pending.filter(connection =>
+              connection.profileId !== profileId || connection.callsign.toUpperCase() !== callsign.trim().toUpperCase()
+            ));
+          }
           this.pendingEchoLinkAction.set(null);
           if (action === 'connect' || action === 'disconnect') {
             this.echolinkActionNotice.set(action === 'connect' && response.output?.startsWith('No se pudo conectar')

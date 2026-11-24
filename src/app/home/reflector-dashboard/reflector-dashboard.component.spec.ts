@@ -465,8 +465,16 @@ describe('ReflectorDashboardComponent', () => {
       connect.flush({ output: 'No se pudo conectar con W1AW; se reintentará cada 12 s en segundo plano.' });
       http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
       fixture.detectChanges();
-      expect(panel.querySelector('tr.echolink-connecting')).toBeNull();
+      expect(panel.querySelector('tr.echolink-connecting')?.textContent).toContain('W1AW');
       expect(panel.textContent).toContain('se reintentará');
+
+      fixture.componentInstance.refresh();
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+        ...status,
+        echolinkConnectedList: [...status.echolinkConnectedList, { number: '3', user: 'W1AW', attribute: 'P' }]
+      });
+      fixture.detectChanges();
+      expect(panel.querySelector('tr.echolink-connecting')).toBeNull();
 
       (panel.querySelector('[aria-label="Desconectar estación"]') as HTMLButtonElement).click();
       const disconnect = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));

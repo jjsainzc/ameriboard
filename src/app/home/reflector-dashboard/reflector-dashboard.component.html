@@ -255,6 +255,16 @@
                 </tr>
               }
             }
+            @for (pending of visiblePendingPermanentConnections(); track pending.profileId + pending.callsign) {
+              @if (pendingStationAction(pending.callsign) !== 'connect') {
+                <tr class="echolink-connecting" aria-busy="true">
+                  <td data-label="#" class="mono">—</td>
+                  <td data-label="Usuario" class="callsign">{{ pending.callsign }}</td>
+                  <td data-label="Atributo" class="mono">Conectando...</td>
+                  @if (echolinkAdmin()) { <td data-label="Acciones"></td> }
+                </tr>
+              }
+            }
             @for (station of echolinkConnectedPages.rows(); track station.number + station.user) {
               <tr [class.echolink-connecting]="pendingStationAction(station.user) === 'connect'"
                 [class.echolink-disconnecting]="pendingStationAction(station.user) === 'disconnect'"
@@ -283,7 +293,7 @@
                 }
               </tr>
             } @empty {
-              @if (pendingEchoLinkAction()?.action !== 'connect') {
+              @if (pendingEchoLinkAction()?.action !== 'connect' && visiblePendingPermanentConnections().length === 0) {
               <tr>
                 <td [attr.colspan]="echolinkAdmin() ? 4 : 3" class="empty-msg">{{ echolinkConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay nodos EchoLink conectados' }}</td>
               </tr>
