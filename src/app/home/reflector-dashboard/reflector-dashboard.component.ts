@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
 import { Component, computed, DestroyRef, ElementRef, inject, OnInit, signal, viewChildren } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ReflectorService, SiteProfile } from '../../core/services/reflector.service';
@@ -40,6 +40,7 @@ export class ReflectorDashboardComponent implements OnInit {
     password: ['', [Validators.required, Validators.maxLength(72)]],
     confirm: ['']
   });
+  readonly adminFormStatus = toSignal(this.adminForm.statusChanges, { initialValue: this.adminForm.status });
   readonly echolinkActionBusy = signal(false);
   readonly pendingEchoLinkAction = signal<{ action: 'connect' | 'disconnect'; callsign: string } | null>(null);
   readonly pendingPermanentConnections = signal<{ profileId: string; callsign: string }[]>([]);

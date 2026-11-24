@@ -50,12 +50,12 @@
       </div>
       @if (adminSetupRequired() && !adminPasswordVisible()) {
         <label for="dashboard-admin-confirm">Confirmar contraseña
-          <input id="dashboard-admin-confirm" type="password" formControlName="confirm" autocomplete="new-password" required />
+          <input id="dashboard-admin-confirm" type="password" formControlName="confirm" autocomplete="new-password" />
         </label>
       }
       @if (adminError()) { <p class="echolink-action-error" role="alert">{{ adminError() }}</p> }
       <div class="login-actions">
-        <button type="submit" class="btn-dark btn-dark-primary" data-icon="➜" [disabled]="adminBusy() || adminForm.invalid">{{ adminSetupRequired() ? 'Crear administrador' : 'Entrar' }}</button>
+        <button type="submit" class="btn-dark btn-dark-primary" data-icon="➜" [disabled]="adminBusy() || adminFormStatus() !== 'VALID'">{{ adminSetupRequired() ? 'Crear administrador' : 'Entrar' }}</button>
       </div>
     </form>
   } @else {

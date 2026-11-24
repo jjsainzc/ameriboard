@@ -578,6 +578,17 @@ describe('ReflectorDashboardComponent', () => {
       (Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Admin')!).click();
       http.expectOne(request => request.url.endsWith('/api/admin/setup')).flush({ required: true });
       fixture.detectChanges();
+      const submit = dialog.querySelector('button[type="submit"]') as HTMLButtonElement;
+      expect(submit.disabled).toBe(true);
+      (dialog.querySelector('[aria-label="Mostrar contraseña"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const password = dialog.querySelector('#dashboard-admin-password') as HTMLInputElement;
+      password.value = 'password123';
+      password.dispatchEvent(new Event('input', { bubbles: true }));
+      await fixture.whenStable();
+      expect(submit.disabled).toBe(false);
+      (dialog.querySelector('[aria-label="Ocultar contraseña"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
       fixture.componentInstance.adminForm.patchValue({ password: 'password123', confirm: 'wrong' });
       (dialog.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
       fixture.detectChanges();
