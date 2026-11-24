@@ -436,7 +436,8 @@ table:not(.legend-table) {
 
   th {
     text-align: left;
-    padding: 0.75rem 1rem;
+    padding: 0.25rem 1rem;
+    line-height: 1;
     background: #0f131f;
     color: #94a3b8;
     font-weight: 600;
@@ -447,7 +448,8 @@ table:not(.legend-table) {
   }
 
   td {
-    padding: 0.75rem 1rem;
+    padding: 0.25rem 1rem;
+    line-height: 1;
     border-bottom: 1px solid #1a2030;
     color: #cbd5e1;
   }
@@ -565,7 +567,8 @@ table:not(.legend-table) {
       grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
       gap: 0.75rem;
       width: auto;
-      padding: 0.5rem 0.75rem;
+      padding: 0.25rem 0.75rem;
+      line-height: 1;
       border-bottom: 1px solid #1e2538;
       overflow-wrap: anywhere;
       text-align: left;
