@@ -127,7 +127,11 @@
     <details class="dashboard-section ysf-section" open>
       <summary class="dashboard-section-summary">
         <span>{{ d.ysfReflectorInfo.name }}</span>
-        <span class="section-reflector-info">{{ d.ysfReflectorInfo.id }} · puerto {{ d.ysfReflectorInfo.port }}</span>
+        <span class="section-reflector-info">
+          {{ d.ysfReflectorInfo.id }}
+          @if (d.ysfReflectorInfo.description) { · {{ d.ysfReflectorInfo.description }} }
+          · puerto {{ d.ysfReflectorInfo.port }}
+        </span>
       </summary>
     <section class="tables-grid-top">
       <!-- Tabla 1: Estaciones o Gateways Conectados -->
@@ -142,10 +146,10 @@
           <table>
             <thead>
               <tr>
-                <th>Indicativo</th>
-                <th>IP</th>
-                <th>Gateway</th>
-                <th>Última lectura</th>
+                <th scope="col">Indicativo</th>
+                <th scope="col">IP</th>
+                <th scope="col">Gateway</th>
+                <th scope="col">Última lectura</th>
               </tr>
             </thead>
             <tbody>
@@ -180,12 +184,12 @@
           <table class="ysf-last-heard">
             <thead>
               <tr>
-                <th>Hace</th>
-                <th>Indicativo</th>
-                <th>Destino</th>
-                <th>Gateway</th>
-                <th>Duración</th>
-                <th>Pérdida</th>
+                <th scope="col">Hace</th>
+                <th scope="col">Indicativo</th>
+                <th scope="col">Destino</th>
+                <th scope="col">Gateway</th>
+                <th scope="col">Duración</th>
+                <th scope="col">Pérdida</th>
               </tr>
             </thead>
             <tbody>
@@ -217,7 +221,11 @@
     <details class="dashboard-section pysf-section" open>
       <summary class="dashboard-section-summary">
         <span>{{ d.pysfReflector.name }}</span>
-        <span class="section-reflector-info">{{ d.pysfReflector.id }} · puerto {{ d.pysfReflector.port }}</span>
+        <span class="section-reflector-info">
+          {{ d.pysfReflector.id }}
+          @if (d.pysfReflector.description) { · {{ d.pysfReflector.description }} }
+          · puerto {{ d.pysfReflector.port }}
+        </span>
       </summary>
       <section class="tables-grid-top">
         <div class="panel-card">
@@ -228,7 +236,7 @@
           <app-table-pagination placement="top" label="estaciones pYSF conectadas" [pagination]="pysfConnectedPages" />
           <div class="table-responsive">
             <table>
-              <thead><tr><th>Indicativo</th><th>IP</th><th>Gateway</th><th>Última lectura</th></tr></thead>
+              <thead><tr><th scope="col">Indicativo</th><th scope="col">IP</th><th scope="col">Gateway</th><th scope="col">Última lectura</th></tr></thead>
               <tbody>
                 @for (station of pysfConnectedPages.rows(); track $index) {
                   <tr>
@@ -253,7 +261,7 @@
           <app-table-pagination placement="top" label="últimos escuchados pYSF" [pagination]="pysfLastHeardPages" />
           <div class="table-responsive">
             <table class="ysf-last-heard">
-              <thead><tr><th>Hace</th><th>Indicativo</th><th>Destino</th><th>Gateway</th><th>Duración</th><th>Pérdida</th></tr></thead>
+              <thead><tr><th scope="col">Hace</th><th scope="col">Indicativo</th><th scope="col">Destino</th><th scope="col">Gateway</th><th scope="col">Duración</th><th scope="col">Pérdida</th></tr></thead>
               <tbody>
                 @for (item of pysfLastHeardPages.rows(); track item.time + item.callsign) {
                   <tr>
@@ -483,7 +491,7 @@
     <!-- Actividad registrada por modalidad en el log DVSwitch -->
     @if (d.dmrAvailable) {
     <details class="dashboard-section dvswitch-section" open>
-      <summary class="dashboard-section-summary"><span>{{ d.dvSwitchTitle }}</span></summary>
+      <summary class="dashboard-section-summary"><span>DVSwitch</span></summary>
     <section class="panel-card full-width">
       <div class="panel-header">
         <h2>{{ d.dvSwitchTitle }}</h2>

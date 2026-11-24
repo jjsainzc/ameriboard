@@ -106,6 +106,10 @@ describe('ReflectorDashboardComponent', () => {
     fixture.detectChanges();
     const tables = fixture.nativeElement.querySelectorAll('table') as NodeListOf<HTMLTableElement>;
     expect(tables).toHaveLength(6);
+    expect(Array.from(tables[0].querySelectorAll('thead th'), th => th.textContent?.trim()))
+      .toEqual(['Indicativo', 'IP', 'Gateway', 'Última lectura']);
+    expect(Array.from(tables[1].querySelectorAll('thead th'), th => th.textContent?.trim()))
+      .toEqual(['Hace', 'Indicativo', 'Destino', 'Gateway', 'Duración', 'Pérdida']);
     expect(fixture.nativeElement.querySelector('.header-badges')).toBeNull();
     expect(Array.from(fixture.nativeElement.querySelectorAll('.bridge-badge') as NodeListOf<HTMLElement>,
       badge => badge.textContent?.trim())).toEqual([
@@ -135,14 +139,54 @@ describe('ReflectorDashboardComponent', () => {
     expect(dvSwitchPanel.textContent).toContain('TEST2');
     expect(dvSwitchPanel.textContent).not.toContain('TEST1');
     const service = TestBed.inject(ReflectorService);
-    service.data.set({ ...service.data()! });
+    service.data.set({ ...service.data()!, dvSwitchTitle: 'Actividad personalizada' });
     fixture.detectChanges();
     expect(search.value).toBe('ysf');
     expect(dvSwitchPanel.querySelectorAll('.dvswitch-table tbody tr')).toHaveLength(2);
+    const dvSwitchSection = fixture.nativeElement.querySelector('.dvswitch-section') as HTMLElement;
+    expect(dvSwitchSection.querySelector('summary')?.textContent?.trim()).toBe('DVSwitch');
+    expect(dvSwitchSection.querySelector('.panel-header h2')?.textContent?.trim()).toBe('Actividad personalizada');
     search.value = 'no existe';
     search.dispatchEvent(new Event('input'));
     fixture.detectChanges();
     expect(dvSwitchPanel.textContent).toContain('Sin resultados para la búsqueda');
+    fixture.destroy();
+    http.verify();
+  });
+
+  it('displays the identity of each reflector in its collapsible section', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+      header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
+      ysfReflectorInfo: { available: true, id: '74002', name: 'EC ECUADOR', description: 'C4FM', port: '42000' },
+      pysfReflector: { available: true, id: '74001', name: 'EC QUITO', description: 'YSF ROOM C4FM', port: '42001', connected: [], lastHeard: [] }
+    });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const ysf = root.querySelector('.ysf-section') as HTMLDetailsElement;
+    const pysf = root.querySelector('.pysf-section') as HTMLDetailsElement;
+    expect(ysf.querySelector('summary')?.textContent).toContain('EC ECUADOR');
+    expect(ysf.querySelector('summary')?.textContent).toContain('74002');
+    expect(ysf.querySelector('summary')?.textContent).toContain('C4FM');
+    expect(ysf.querySelector('summary')?.textContent).toContain('42000');
+    expect(pysf.querySelector('summary')?.textContent).toContain('EC QUITO');
+    expect(pysf.querySelector('summary')?.textContent).toContain('74001');
+    expect(pysf.querySelector('summary')?.textContent).toContain('YSF ROOM C4FM');
+    expect(pysf.querySelector('summary')?.textContent).toContain('42001');
+    expect(ysf.open).toBe(true);
+    ysf.open = false;
+    fixture.detectChanges();
+    expect(ysf.open).toBe(false);
+    expect(pysf.open).toBe(true);
     fixture.destroy();
     http.verify();
   });

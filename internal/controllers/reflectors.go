@@ -183,19 +183,21 @@ type YSFConnectedNow struct {
 }
 
 type YSFReflectorInfo struct {
-	Available bool   `json:"available"`
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Port      string `json:"port"`
+	Available   bool   `json:"available"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Port        string `json:"port"`
 }
 
 type PYSFReflectorData struct {
-	Available bool              `json:"available"`
-	ID        string            `json:"id"`
-	Name      string            `json:"name"`
-	Port      string            `json:"port"`
-	Connected []YSFConnectedNow `json:"connected"`
-	LastHeard []TXEntry         `json:"lastHeard"`
+	Available   bool              `json:"available"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Port        string            `json:"port"`
+	Connected   []YSFConnectedNow `json:"connected"`
+	LastHeard   []TXEntry         `json:"lastHeard"`
 }
 
 func ysfGatewayType(ip string) string {
@@ -441,7 +443,6 @@ func readYSFReflectorInfo(path string) YSFReflectorInfo {
 	if err == nil {
 		defer file.Close()
 		section := ""
-		configuredPort := ""
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
 			line := strings.TrimSpace(scanner.Text())
@@ -464,14 +465,13 @@ func readYSFReflectorInfo(path string) YSFReflectorInfo {
 					info.ID = value
 				case "name":
 					info.Name = value
+				case "description":
+					info.Description = value
 				}
 			}
-			if key == "port" {
-				configuredPort = value
-			}
 		}
-		info.Port = parseYSFActivePort(configuredPort)
 	}
+	info.Port = parseYSFActivePort()
 
 	if info.ID != "" || info.Name != "" || info.Port != "" {
 		info.Available = true
@@ -479,8 +479,7 @@ func readYSFReflectorInfo(path string) YSFReflectorInfo {
 	return info
 }
 
-func parseYSFActivePort(configuredPort string) string {
-	active := ""
+func parseYSFActivePort() string {
 	for _, command := range [][]string{
 		{"netstat", "-tulpn"},
 		{"ss", "-H", "-lunp"},
@@ -489,49 +488,49 @@ func parseYSFActivePort(configuredPort string) string {
 		if err != nil {
 			continue
 		}
-		active = parseYSFActivePortOutput(string(output))
+		active := parseYSFActivePortOutput(string(output))
 		if active != "" {
-			break
+			return active
 		}
-	}
-	if active != "" {
-		return active
-	}
-	port := strings.TrimSpace(configuredPort)
-	if portNumber, err := strconv.Atoi(port); err == nil && portNumber >= 42000 && portNumber <= 42009 {
-		return port
 	}
 	return ""
 }
 
 func parseYSFActivePortOutput(output string) string {
 	for _, line := range strings.Split(output, "\n") {
-		fields := strings.Fields(strings.ToLower(line))
-		if len(fields) == 0 {
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
 			continue
 		}
-		for _, field := range fields {
-			colon := strings.LastIndex(field, ":")
-			if colon < 0 {
-				continue
-			}
-			port, err := strconv.Atoi(strings.Trim(field[colon+1:], "[];,"))
-			if err == nil && port >= 42000 && port <= 42009 {
-				return strconv.Itoa(port)
-			}
+		if strings.HasPrefix(strings.ToLower(fields[0]), "tcp") {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if !ysfProcessRe.MatchString(lower) {
+			continue
+		}
+		localAddress := fields[3]
+		colon := strings.LastIndex(localAddress, ":")
+		if colon < 0 {
+			continue
+		}
+		port, err := strconv.Atoi(strings.Trim(localAddress[colon+1:], "[];,"))
+		if err == nil && port > 0 && port <= 65535 {
+			return strconv.Itoa(port)
 		}
 	}
 	return ""
 }
 
 var (
+	ysfProcessRe       = regexp.MustCompile(`(?:/|")ysfreflecto(?:r)?(?:\s|,|"|$)`)
 	pysfLinkedHeaderRe = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+Currently linked repeaters/gateways:`)
 	pysfDataStartRe    = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(?:<[^>]+>\s+)?Received data from\s+([A-Z0-9\-/]+)\s+to\s+([A-Z0-9\-/]+)\s+at\s+([A-Z0-9\-/]+)`)
 	pysfDataEndRe      = regexp.MustCompile(`^M:\s+(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}(?:\.\d+)?)\s+(?:<[^>]+>\s+)?Received end of transmission`)
 )
 
 type pysfINI struct {
-	ID, Name, Port, LogDir, LogRoot string
+	ID, Name, Description, Port, LogDir, LogRoot string
 }
 
 func readPYSFReflectorINI(path string) pysfINI {
@@ -569,6 +568,9 @@ func readPYSFReflectorINI(path string) pysfINI {
 			}
 			if key == "name" {
 				info.Name = value
+			}
+			if key == "description" {
+				info.Description = value
 			}
 		case "network":
 			if key == "port" {
@@ -657,6 +659,7 @@ func readPYSFReflectorStatus(parent context.Context, cfg ReflectorConfig, now ti
 	result.Available = true
 	result.ID = ini.ID
 	result.Name = ini.Name
+	result.Description = ini.Description
 	result.Port = ini.Port
 	result.Connected = make([]YSFConnectedNow, 0)
 	result.LastHeard = make([]TXEntry, 0)
@@ -1240,15 +1243,6 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	}
 
 	ysfReflectorInfo := readYSFReflectorInfo(cfg.YSFReflectorConfig)
-	if ysfReflectorInfo.ID == "" {
-		ysfReflectorInfo.ID = cfg.YSFReflector
-	}
-	if ysfReflectorInfo.Name == "" {
-		ysfReflectorInfo.Name = "YSF"
-	}
-	if ysfReflectorInfo.ID != "" || ysfReflectorInfo.Name != "" {
-		ysfReflectorInfo.Available = ysfReflectorInfo.Available || cfg.YSFLogDir != ""
-	}
 	pysfReflector := readPYSFReflectorStatus(c.Request().Context(), cfg, now)
 
 	resp := DashboardStatusResponse{

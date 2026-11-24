@@ -56,6 +56,7 @@ export interface YsfReflectorInfo {
   available: boolean;
   id: string;
   name: string;
+  description: string;
   port: string;
 }
 
@@ -63,6 +64,7 @@ export interface PysfReflectorData {
   available: boolean;
   id: string;
   name: string;
+  description: string;
   port: string;
   connected: YsfStation[];
   lastHeard: YsfActivity[];

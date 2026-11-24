@@ -23,11 +23,12 @@ interface BackendStatusRaw {
   };
   dvSwitchTitle?: string | null;
   dvSwitchBridges?: DVSwitchBridge[] | null;
-  ysfReflectorInfo?: { available?: boolean; id?: string; name?: string; port?: string } | null;
+  ysfReflectorInfo?: { available?: boolean; id?: string; name?: string; description?: string; port?: string } | null;
   pysfReflector?: {
     available?: boolean;
     id?: string;
     name?: string;
+    description?: string;
     port?: string;
     connected?: Array<{ callsign: string; ip: string; type: string; since: string }> | null;
     lastHeard?: Array<{ callsign: string; duration: string; ago: string; target?: string; gateway?: string }> | null;
@@ -205,12 +206,14 @@ export class ReflectorService {
         available: raw.ysfReflectorInfo?.available === true,
         id: raw.ysfReflectorInfo?.id?.trim() || '—',
         name: raw.ysfReflectorInfo?.name?.trim() || '—',
+        description: raw.ysfReflectorInfo?.description?.trim() || '',
         port: raw.ysfReflectorInfo?.port?.trim() || '—'
       },
       pysfReflector: {
         available: raw.pysfReflector?.available === true,
         id: raw.pysfReflector?.id?.trim() || '—',
         name: raw.pysfReflector?.name?.trim() || '—',
+        description: raw.pysfReflector?.description?.trim() || '',
         port: raw.pysfReflector?.port?.trim() || '—',
         connected: (raw.pysfReflector?.connected ?? []).map(station => ({
           callsign: station.callsign,

@@ -100,6 +100,12 @@ y solo presenta las modalidades que aparecen en el log configurado en
 `dmr_log_dir`. Acepta transmisiones locales (`Begin TX`/`TX state = OFF`) y de
 red (`received ...`/`end of transmission`). Nombre y origen se muestran como
 `—` si el log no los proporciona; pérdida y BER se completan cuando están presentes.
+El encabezado YSF toma el nombre, ID y descripción de `[Info]` en
+`ysf_reflector_config`. Su puerto se muestra solo si `netstat` o `ss` identifica
+el proceso YSF en un socket UDP; de lo contrario se muestra `—`. Para pYSF se
+busca el INI en el `ExecStart` del servicio configurado y, si no se encuentra,
+se usa `pysf_reflector_config`; de él se leen nombre, ID, descripción, puerto y
+ruta de logs.
 La fecha y hora DVSwitch se muestran en formato día/mes/año y en la zona
 horaria del servidor que genera los datos.
 Las tablas de conexiones y actividad muestran hasta 25 registros por página.
@@ -173,7 +179,8 @@ máximo ocho horas y la cookie no es persistente.
 
 Después de iniciar sesión, la sección **Configuración principal** permite editar
 el título y el subtítulo del dashboard local, así como el título de la tabla
-DVSwitch. Los cambios se aplican sin reiniciar el servicio y se guardan en el
+DVSwitch. El encabezado de la sección colapsable sigue diciendo «DVSwitch».
+Los cambios se aplican sin reiniciar el servicio y se guardan en el
 directorio de estado de Ameriboard; prevalecen sobre los valores del YAML o del
 entorno, sin modificar esos archivos.
 

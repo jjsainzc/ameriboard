@@ -16,15 +16,23 @@ import (
 
 func TestYSFReflectorInfoFromIni(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "YSFreflector.ini")
-	if err := os.WriteFile(path, []byte("[Info]\nId=31645\nName=US EAGLES\nDescription=Florida Eagles\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("[Info]\n#Id=31645\n#Name=US EAGLES\n#Description=Florida Eagles\nId=74002\nName=EC ECUADOR\nDescription=C4FM\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	info := readYSFReflectorInfo(path)
-	if info.ID != "31645" || info.Name != "US EAGLES" {
+	if info.ID != "74002" || info.Name != "EC ECUADOR" || info.Description != "C4FM" {
 		t.Fatalf("unexpected YSF reflector info: %+v", info)
 	}
-	if got := parseYSFActivePortOutput("udp 0 0 0.0.0.0:42000 0.0.0.0:* 13792/YSFReflecto\n"); got != "42000" {
+	output := "udp 0 0 0.0.0.0:42001 0.0.0.0:* 160708/python3\n" +
+		"udp 0 0 0.0.0.0:42000 0.0.0.0:* 13792/./YSFReflecto\n"
+	if got := parseYSFActivePortOutput(output); got != "42000" {
 		t.Fatalf("active YSF port = %q, want 42000", got)
+	}
+	if got := parseYSFActivePortOutput("UNCONN 0 0 0.0.0.0:42002 0.0.0.0:* users:((\"YSFReflecto\",pid=4,fd=5))"); got != "42002" {
+		t.Fatalf("active YSF port from ss = %q, want 42002", got)
+	}
+	if got := parseYSFActivePortOutput("udp 0 0 0.0.0.0:42001 0.0.0.0:* 160708/python3\n"); got != "" {
+		t.Fatalf("python port mistaken for YSF port: %q", got)
 	}
 }
 
@@ -32,8 +40,12 @@ func TestPYSFReflectorINIAndUnitPaths(t *testing.T) {
 	dir := t.TempDir()
 	iniPath := filepath.Join(dir, "pysfreflector.ini")
 	if err := os.WriteFile(iniPath, []byte(`[Info]
+	# Id=5 digits only
 	Id=74001
+	# 16 characters max
 	Name=EC QUITO
+	# 14 characters max
+	Description=YSF ROOM C4FM
 	[Network]
 	Port=42001
 	[Log]
@@ -43,7 +55,7 @@ func TestPYSFReflectorINIAndUnitPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	ini := readPYSFReflectorINI(iniPath)
-	if ini.ID != "74001" || ini.Name != "EC QUITO" || ini.Port != "42001" ||
+	if ini.ID != "74001" || ini.Name != "EC QUITO" || ini.Description != "YSF ROOM C4FM" || ini.Port != "42001" ||
 		ini.LogDir != dir || ini.LogRoot != "YSFReflector" {
 		t.Fatalf("unexpected pYSF INI: %+v", ini)
 	}
