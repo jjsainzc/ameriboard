@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestEchoLinkActionDiagnostics(t *testing.T) {
@@ -92,5 +93,54 @@ func TestEchoLinkActionRejectsNonzeroProtocolCode(t *testing.T) {
 	service := NewReflectorService(ReflectorConfig{EchoLinkCommand: command})
 	if _, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "ban-list"}); err == nil || !strings.Contains(err.Error(), "65536") {
 		t.Fatalf("protocol error not reported: %v", err)
+	}
+}
+
+func TestEchoLinkPermanentConnectRetriesInBackground(t *testing.T) {
+	dir := t.TempDir()
+	command := filepath.Join(dir, "tlbcmd")
+	counter := filepath.Join(dir, "attempts")
+	script := "#!/bin/sh\necho x >> '" + counter + "'\n[ \"$(wc -l < '" + counter + "')\" -ge 3 ] && exit 0\necho 1\n"
+	if err := os.WriteFile(command, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	service := NewReflectorService(ReflectorConfig{EchoLinkCommand: command})
+	service.retryInterval = 20 * time.Millisecond
+	t.Cleanup(service.Close)
+
+	output, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "connect", Callsign: "W1AW", Permanent: true})
+	if err != nil || !strings.Contains(output, "segundo plano") {
+		t.Fatalf("output=%q error=%v", output, err)
+	}
+	if _, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "connect", Callsign: "w1aw", Permanent: true}); err == nil {
+		t.Fatal("duplicate permanent connect accepted")
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for service.hasEchoLinkRetry("W1AW") && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	data, _ := os.ReadFile(counter)
+	if service.hasEchoLinkRetry("W1AW") || strings.Count(string(data), "x") != 3 {
+		t.Fatalf("retry did not stop after success; attempts=%d", strings.Count(string(data), "x"))
+	}
+
+	if err := os.WriteFile(counter, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "connect", Callsign: "N0CALL"}); err == nil || service.hasEchoLinkRetry("N0CALL") {
+		t.Fatalf("non-permanent connect should fail without retry: %v", err)
+	}
+	service.retryInterval = time.Hour
+	if _, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "connect", Callsign: "N0CALL", Permanent: true}); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "retry-list"}); !strings.HasPrefix(list, "N0CALL ") {
+		t.Fatalf("retry list=%q", list)
+	}
+	if _, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "retry-cancel", Callsign: "n0call"}); err != nil || service.hasEchoLinkRetry("N0CALL") {
+		t.Fatalf("cancel error=%v", err)
+	}
+	if _, err := service.ExecuteEchoLinkAction(context.Background(), EchoLinkActionRequest{Action: "retry-cancel", Callsign: "N0CALL"}); err == nil {
+		t.Fatal("cancel of missing retry accepted")
 	}
 }

@@ -23,10 +23,10 @@
   </div>
 } @else if (pagination.count() > 25) {
   <nav class="pagination-nav" [attr.aria-label]="'Paginación de ' + label">
-    <button type="button" aria-label="Ir al inicio" [disabled]="pagination.currentPage() === 1" (click)="pagination.setPage(1)">«</button>
-    <button type="button" [disabled]="pagination.currentPage() === 1" (click)="pagination.setPage(pagination.currentPage() - 1)">Anterior</button>
+    <button type="button" class="btn-dark" aria-label="Ir al inicio" [disabled]="pagination.currentPage() === 1" (click)="pagination.setPage(1)">«</button>
+    <button type="button" [disabled]="pagination.currentPage() === 1" class="btn-dark" data-icon="‹" (click)="pagination.setPage(pagination.currentPage() - 1)">Anterior</button>
     <span aria-live="polite">Página {{ pagination.currentPage() }} de {{ pagination.totalPages() }}</span>
-    <button type="button" [disabled]="pagination.currentPage() === pagination.totalPages()" (click)="pagination.setPage(pagination.currentPage() + 1)">Siguiente</button>
-    <button type="button" aria-label="Ir al final" [disabled]="pagination.currentPage() === pagination.totalPages()" (click)="pagination.setPage(pagination.totalPages())">»</button>
+    <button type="button" [disabled]="pagination.currentPage() === pagination.totalPages()" class="btn-dark" data-icon="›" (click)="pagination.setPage(pagination.currentPage() + 1)">Siguiente</button>
+    <button type="button" class="btn-dark" aria-label="Ir al final" [disabled]="pagination.currentPage() === pagination.totalPages()" (click)="pagination.setPage(pagination.totalPages())">»</button>
   </nav>
 }

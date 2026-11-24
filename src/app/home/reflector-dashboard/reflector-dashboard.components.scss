@@ -24,7 +24,6 @@
   gap: .75rem;
 
   select { padding: .5rem; background: #131724; color: #e2e8f0; border: 1px solid #64748b; }
-  button { padding: .5rem; background: #164e63; color: #fff; border: 1px solid #94a3b8; cursor: pointer; }
   a { color: #7dd3fc; }
 }
 
@@ -212,14 +211,7 @@
 .admin-menu {
   position: relative;
 
-  summary {
-    padding: .5rem;
-    border: 1px solid #94a3b8;
-    background: #164e63;
-    color: #fff;
-    cursor: pointer;
-    white-space: nowrap;
-  }
+  &[open] > summary { border-color: var(--primary); }
 }
 
 .dropdown-panel {
@@ -233,16 +225,7 @@
   display: grid;
   gap: .25rem;
 
-  a, button {
-    display: block;
-    padding: .5rem;
-    text-align: left;
-    color: #e2e8f0;
-    background: #1e293b;
-    border: 0;
-    text-decoration: none;
-    cursor: pointer;
-  }
+  .btn-dark { width: 100%; justify-content: flex-start; }
 }
 
 .admin-login-dialog {
@@ -316,14 +299,7 @@
   display: flex;
   justify-content: flex-end;
 
-  button {
-    padding: .4rem .75rem;
-    border: 1px solid #758a99;
-    border-radius: 5px;
-    background: #263641;
-    color: #dce5eb;
-    cursor: pointer;
-  }
+  .btn-dark { padding: .4rem .75rem; }
 }
 
 .echolink-action-dialog {
@@ -336,7 +312,9 @@
   h2 { margin-top: 0; }
   label { display: grid; gap: .35rem; margin: .75rem 0; }
   input { padding: .55rem; border: 1px solid #94a3b8; background: #0f172a; color: #f8fafc; }
-  button { margin-right: .35rem; padding: .45rem .65rem; border: 1px solid #94a3b8; background: #164e63; color: #fff; }
+  .btn-dark { margin-right: .35rem; }
+  .checkbox-label { display: flex; align-items: center; gap: .5rem; }
+  .checkbox-label input { padding: 0; }
   &::backdrop { background: #000b; }
 }
 
@@ -349,13 +327,6 @@
 
 .echolink-action-error { color: #fca5a5; }
 .echolink-action-feedback { margin: .75rem 1rem; }
-
-.echolink-actions button, .echolink-legend button {
-  padding: .4rem;
-  border: 1px solid #94a3b8;
-  background: #164e63;
-  color: #fff;
-}
 
 .echolink-legend {
   box-sizing: border-box;

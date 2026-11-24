@@ -6,17 +6,17 @@
       <option [value]="site.id">{{ site.name }}{{ site.visible ? '' : ' (privado)' }}</option>
     }
   </select>
-  <button type="button" (click)="refresh()">Refrescar datos</button>
+  <button type="button" class="btn-dark" data-icon="↻" (click)="refresh()">Refrescar datos</button>
   @if (echolinkAdmin()) {
     <details class="admin-menu">
-      <summary>Administración</summary>
+      <summary class="btn-dark" data-icon="⚙">Administración</summary>
       <div class="dropdown-panel">
-        <a routerLink="/admin">Administrar sitios</a>
-        <button type="button" (click)="logoutAdmin()" [disabled]="adminBusy() || echolinkActionBusy()">Cerrar sesión</button>
+        <a routerLink="/admin" class="btn-dark" data-icon="🗂">Administrar sitios</a>
+        <button type="button" class="btn-dark btn-dark-danger" data-icon="⎋" (click)="logoutAdmin()" [disabled]="adminBusy() || echolinkActionBusy()">Cerrar sesión</button>
       </div>
     </details>
   } @else {
-    <button type="button" aria-haspopup="dialog" (click)="openAdminLogin(adminDialog)">Admin</button>
+    <button type="button" class="btn-dark" data-icon="🔐" aria-haspopup="dialog" (click)="openAdminLogin(adminDialog)">Admin</button>
   }
 </div>
 @if (adminError() && !adminDialog.open) { <p role="alert">{{ adminError() }}</p> }
@@ -56,7 +56,7 @@
       }
       @if (adminError()) { <p class="echolink-action-error" role="alert">{{ adminError() }}</p> }
       <div class="login-actions">
-        <button type="submit" [disabled]="adminBusy() || adminForm.invalid">{{ adminSetupRequired() ? 'Crear administrador' : 'Entrar' }}</button>
+        <button type="submit" class="btn-dark btn-dark-primary" data-icon="➜" [disabled]="adminBusy() || adminForm.invalid">{{ adminSetupRequired() ? 'Crear administrador' : 'Entrar' }}</button>
       </div>
     </form>
   } @else {
@@ -215,14 +215,15 @@
         <h2 id="echolink-title">EchoLink conectado</h2>
         <div class="echolink-actions">
           <span class="count-pill">{{ d.echolinkConnected.length }}</span>
-          <button type="button" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda de atributos</button>
+          <button type="button" class="btn-dark" data-icon="ⓘ" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda de atributos</button>
           @if (echolinkAdmin()) {
             <details class="admin-menu">
-              <summary>Opciones EchoLink</summary>
+              <summary class="btn-dark" data-icon="☰">Opciones EchoLink</summary>
               <div class="dropdown-panel">
-                <button type="button" (click)="openEchoLinkAction(actionDialog, 'connect')">Conectar</button>
-                <button type="button" (click)="openEchoLinkAction(actionDialog, 'message')">Mensaje</button>
-                <button type="button" (click)="openEchoLinkAction(actionDialog, 'ban-list')">Lista de baneados</button>
+                <button type="button" class="btn-dark" data-icon="🔗" (click)="openEchoLinkAction(actionDialog, 'connect')">Conectar</button>
+                <button type="button" class="btn-dark" data-icon="💬" (click)="openEchoLinkAction(actionDialog, 'message')">Mensaje</button>
+                <button type="button" class="btn-dark" data-icon="⛔" (click)="openEchoLinkAction(actionDialog, 'ban-list')">Lista de baneados</button>
+                <button type="button" class="btn-dark" data-icon="⏳" (click)="openEchoLinkAction(actionDialog, 'retry-list')">Reintentos pendientes</button>
               </div>
             </details>
           }
@@ -323,7 +324,7 @@
           }
         </tbody>
       </table>
-      <button type="button" (click)="legendDialog.close()">Cerrar</button>
+      <button type="button" class="btn-dark" data-icon="✕" (click)="legendDialog.close()">Cerrar</button>
     </dialog>
     <dialog #actionDialog class="echolink-action-dialog" aria-labelledby="echolink-action-title">
       <h2 id="echolink-action-title">Acción EchoLink</h2>
@@ -335,9 +336,22 @@
         @else if (!echolinkActionError()) {
           <ul class="banned-stations">
             @for (callsign of bannedStations(); track callsign) {
-              <li><span>{{ callsign }}</span><button type="button" (click)="unbanStation(callsign)">Desbanear</button></li>
+              <li><span>{{ callsign }}</span><button type="button" class="btn-dark" data-icon="♻" [disabled]="echolinkActionBusy()" (click)="unbanStation(callsign)">Desbanear</button></li>
             } @empty {
               <li>No hay estaciones baneadas.</li>
+            }
+          </ul>
+        }
+      } @else if (actionDialogAction() === 'retry-list') {
+        <h3>Conexiones permanentes pendientes</h3>
+        @if (echolinkActionBusy()) { <p role="status">Consultando reintentos...</p> }
+        @else {
+          <ul class="banned-stations">
+            @for (retry of pendingRetries(); track retry.target) {
+              <li><span>{{ retry.target }} · {{ retry.attempts }} intentos</span>
+                <button type="button" class="btn-dark btn-dark-danger" data-icon="✕" (click)="cancelRetry(retry.target)">Cancelar</button></li>
+            } @empty {
+              <li>No hay reintentos pendientes.</li>
             }
           </ul>
         }
@@ -352,14 +366,21 @@
             <input [value]="actionDialogIp()" (input)="actionDialogIp.set($any($event.target).value)" />
           </label>
         }
-        <button type="button" (click)="submitEchoLinkAction(actionDialog)" [disabled]="echolinkActionBusy() || !actionDialogInput().trim()">Aplicar</button>
+        @if (actionDialogAction() === 'connect') {
+          <label class="checkbox-label">
+            <input type="checkbox" [checked]="actionDialogPermanent()"
+              (change)="actionDialogPermanent.set($any($event.target).checked)" />
+            Permanente: si no conecta, reintentar cada 12 s en segundo plano
+          </label>
+        }
+        <button type="button" class="btn-dark btn-dark-primary" data-icon="✔" (click)="submitEchoLinkAction(actionDialog)" [disabled]="echolinkActionBusy() || !actionDialogInput().trim()">Aplicar</button>
       } @else if (actionDialogAction() === 'message') {
         <label>Mensaje
           <input [value]="actionDialogInput()" (input)="actionDialogInput.set($any($event.target).value)" />
         </label>
-        <button type="button" (click)="submitEchoLinkAction(actionDialog)" [disabled]="echolinkActionBusy() || !actionDialogInput()">Enviar</button>
+        <button type="button" class="btn-dark btn-dark-primary" data-icon="➤" (click)="submitEchoLinkAction(actionDialog)" [disabled]="echolinkActionBusy() || !actionDialogInput()">Enviar</button>
       }
-      <button type="button" (click)="actionDialog.close()">Cerrar</button>
+      <button type="button" class="btn-dark" data-icon="✕" (click)="actionDialog.close()">Cerrar</button>
     </dialog>
     }
 

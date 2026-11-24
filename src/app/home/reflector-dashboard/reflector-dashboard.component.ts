@@ -46,7 +46,9 @@ export class ReflectorDashboardComponent implements OnInit {
   readonly actionDialogAction = signal('');
   readonly actionDialogInput = signal('');
   readonly actionDialogIp = signal('');
+  readonly actionDialogPermanent = signal(false);
   readonly bannedStations = signal<string[]>([]);
+  readonly pendingRetries = signal<{ target: string; attempts: number }[]>([]);
   readonly ysfConnectedPages = new TablePagination(computed(() => this.data()?.ysfConnected ?? []));
   readonly ysfLastHeardPages = new TablePagination(computed(() => this.data()?.ysfLastHeard ?? []));
   readonly echolinkConnectedPages = new TablePagination(computed(() => this.data()?.echolinkConnected ?? []));
@@ -205,18 +207,21 @@ export class ReflectorDashboardComponent implements OnInit {
     this.actionDialogStation.set(station);
     this.actionDialogInput.set(action === 'ban' ? station : '');
     this.actionDialogIp.set('');
+    this.actionDialogPermanent.set(false);
     this.echolinkActionError.set('');
     this.echolinkActionNotice.set('');
     if (!dialog.open) { dialog.showModal(); }
     if (action === 'ban-list') { this.loadBannedStations(); }
+    if (action === 'retry-list') { this.loadPendingRetries(); }
   }
 
   submitEchoLinkAction(dialog: HTMLDialogElement): void {
     const action = this.actionDialogAction();
     const station = this.actionDialogStation();
-    const body: Record<string, string> = { action };
+    const body: Record<string, string | boolean> = { action };
     if (action === 'connect') {
       body['callsign'] = this.actionDialogInput();
+      body['permanent'] = this.actionDialogPermanent();
     } else if (action === 'ban') {
       body['callsign'] = this.actionDialogInput();
       body['ip'] = this.actionDialogIp();
@@ -225,10 +230,10 @@ export class ReflectorDashboardComponent implements OnInit {
     } else if (action === 'message') {
       body['message'] = this.actionDialogInput();
     }
-    this.executeEchoLinkAction(action, body['callsign'] ?? '', body, dialog);
+    this.executeEchoLinkAction(action, String(body['callsign'] ?? ''), body, dialog);
   }
 
-  private executeEchoLinkAction(action: string, callsign: string = '', body?: Record<string, string>, dialog?: HTMLDialogElement): void {
+  private executeEchoLinkAction(action: string, callsign: string = '', body?: Record<string, string | boolean>, dialog?: HTMLDialogElement): void {
     if (this.echolinkActionBusy()) { return; }
     this.echolinkActionBusy.set(true);
     this.echolinkActionNotice.set('');
@@ -243,6 +248,8 @@ export class ReflectorDashboardComponent implements OnInit {
           this.echolinkActionNotice.set(response.output || 'Acción EchoLink ejecutada.');
           if (action === 'unban') {
             this.loadBannedStations();
+          } else if (action === 'retry-cancel') {
+            this.loadPendingRetries();
           } else {
             dialog?.close();
           }
@@ -281,6 +288,32 @@ export class ReflectorDashboardComponent implements OnInit {
           this.echolinkActionBusy.set(false);
           if (this.handleExpiredAdmin(error)) { return; }
           this.echolinkActionError.set(this.actionErrorMessage(error, 'No se pudo consultar la lista de baneados.'));
+        }
+      });
+  }
+
+  cancelRetry(target: string): void {
+    this.executeEchoLinkAction('retry-cancel', target);
+  }
+
+  private loadPendingRetries(): void {
+    if (this.echolinkActionBusy()) { return; }
+    this.echolinkActionBusy.set(true);
+    this.pendingRetries.set([]);
+    const profileId = this.selectedProfileId();
+    this.http.post<{ output: string }>(this.echoLinkActionUrl(profileId), { action: 'retry-list' }, { headers: this.headers })
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: response => {
+          this.echolinkActionBusy.set(false);
+          if (profileId !== this.selectedProfileId()) { return; }
+          this.pendingRetries.set(response.output.split('\n').map(line => line.trim().split(/\s+/))
+            .filter(fields => fields.length === 2 && fields[0])
+            .map(([target, attempts]) => ({ target, attempts: Number(attempts) })));
+        },
+        error: error => {
+          this.echolinkActionBusy.set(false);
+          if (this.handleExpiredAdmin(error)) { return; }
+          this.echolinkActionError.set(this.actionErrorMessage(error, 'No se pudieron consultar los reintentos pendientes.'));
         }
       });
   }

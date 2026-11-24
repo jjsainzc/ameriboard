@@ -419,7 +419,7 @@ describe('ReflectorDashboardComponent', () => {
       dialog.close = vi.fn();
       const globalMenu = panel.querySelector('.admin-menu')!;
       const buttons = Array.from(globalMenu.querySelectorAll('button'));
-      expect(buttons.map(button => button.textContent?.trim())).toEqual(['Conectar', 'Mensaje', 'Lista de baneados']);
+      expect(buttons.map(button => button.textContent?.trim())).toEqual(['Conectar', 'Mensaje', 'Lista de baneados', 'Reintentos pendientes']);
       buttons[2].click();
       const listRequest = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
       expect(listRequest.request.body).toEqual({ action: 'ban-list' });
@@ -436,6 +436,23 @@ describe('ReflectorDashboardComponent', () => {
       fixture.detectChanges();
       expect(dialog.querySelector('.banned-stations')?.textContent).not.toContain('W1AW');
       expect(dialog.querySelector('.banned-stations')?.textContent).toContain('KQ4ABC');
+
+      expect(buttons[0].classList.contains('btn-dark')).toBe(true);
+      expect(buttons[0].dataset['icon']).toBeTruthy();
+      buttons[0].click();
+      fixture.detectChanges();
+      const callsignInput = dialog.querySelector('label input:not([type])') as HTMLInputElement;
+      callsignInput.value = 'W1AW';
+      callsignInput.dispatchEvent(new Event('input'));
+      const permanent = dialog.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      permanent.checked = true;
+      permanent.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      (Array.from(dialog.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Aplicar') as HTMLButtonElement).click();
+      const connect = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
+      expect(connect.request.body).toEqual({ action: 'connect', callsign: 'W1AW', permanent: true });
+      connect.flush({ output: 'No se pudo conectar con W1AW; se reintentará cada 12 s en segundo plano.' });
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
       fixture.destroy();
       http.verify();
     });

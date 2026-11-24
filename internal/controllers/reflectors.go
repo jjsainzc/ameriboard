@@ -102,10 +102,13 @@ type ReflectorService struct {
 	mu              sync.RWMutex
 	cfg             ReflectorConfig
 	echoLinkHistory *echoLinkHistoryStore
+	retryMu         sync.Mutex
+	retries         map[string]*echoLinkRetry
+	retryInterval   time.Duration
 }
 
 func NewReflectorService(cfg ReflectorConfig) *ReflectorService {
-	service := &ReflectorService{cfg: cfg}
+	service := &ReflectorService{cfg: cfg, retries: make(map[string]*echoLinkRetry), retryInterval: echoLinkRetryInterval}
 	if cfg.EchoLinkHistoryFile != "" {
 		service.echoLinkHistory = newEchoLinkHistoryStore(cfg.EchoLinkHistoryFile)
 	}
@@ -271,10 +274,11 @@ type dmrAgg struct {
 }
 
 type EchoLinkActionRequest struct {
-	Action   string `json:"action"`
-	Callsign string `json:"callsign"`
-	IP       string `json:"ip"`
-	Message  string `json:"message"`
+	Action    string `json:"action"`
+	Callsign  string `json:"callsign"`
+	IP        string `json:"ip"`
+	Message   string `json:"message"`
+	Permanent bool   `json:"permanent"`
 }
 
 var echoLinkTargetPattern = regexp.MustCompile(`^[A-Za-z0-9*][A-Za-z0-9*./:_-]{0,127}$`)
@@ -295,7 +299,7 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 	callsign := strings.TrimSpace(request.Callsign)
 	args := append([]string{}, parts[1:]...)
 	action := strings.ToLower(strings.TrimSpace(request.Action))
-	if action == "connect" || action == "disconnect" || action == "ban" || action == "unban" || action == "mute" || action == "unmute" {
+	if action == "connect" || action == "disconnect" || action == "ban" || action == "unban" || action == "mute" || action == "unmute" || action == "retry-cancel" {
 		if !echoLinkTargetPattern.MatchString(callsign) || strings.EqualFold(callsign, "ALL") {
 			return "", errors.New("indicativo o destino inválido")
 		}
@@ -304,6 +308,7 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 	case "connect":
 		args = append(args, "connect", callsign)
 	case "disconnect":
+		s.cancelEchoLinkRetry(callsign)
 		args = append(args, "disconnect", callsign)
 	case "ban":
 		args = append(args, "ban", "add", callsign)
@@ -327,13 +332,34 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 			return "", errors.New("el mensaje debe contener hasta 900 bytes y no puede incluir punto y coma ni saltos de línea")
 		}
 		args = append(args, "message", message)
+	case "retry-list":
+		return s.echoLinkRetryList(), nil
+	case "retry-cancel":
+		if !s.cancelEchoLinkRetry(callsign) {
+			return "", errors.New("no hay reintentos pendientes para ese destino")
+		}
+		return "Reintentos cancelados.", nil
 	default:
 		return "", errors.New("acción EchoLink no válida")
 	}
 
+	if action == "connect" && request.Permanent && s.hasEchoLinkRetry(callsign) {
+		return "", errors.New("ya hay reintentos en segundo plano para ese destino")
+	}
+	output, err := s.runEchoLinkCommand(parent, action, parts[0], args, parts[1:], request)
+	if err != nil && action == "connect" && request.Permanent {
+		if retryErr := s.startEchoLinkRetry(callsign, parts[0], args, parts[1:], request); retryErr != nil {
+			return "", retryErr
+		}
+		return fmt.Sprintf("No se pudo conectar con %s; se reintentará cada %d s en segundo plano.", callsign, int(s.retryInterval.Seconds())), nil
+	}
+	return output, err
+}
+
+func (s *ReflectorService) runEchoLinkCommand(parent context.Context, action, name string, args, configuredArgs []string, request EchoLinkActionRequest) (string, error) {
 	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
-	output, err := exec.CommandContext(ctx, parts[0], args...).CombinedOutput()
+	output, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	if err == nil {
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 		if len(lines) > 0 && strings.HasPrefix(strings.ToLower(strings.TrimSpace(lines[0])), "tlbcmd version") {
@@ -345,7 +371,7 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 			}
 		}
 	}
-	diagnostic := echoLinkDiagnosticOutput(action, string(output), parts[1:], request)
+	diagnostic := echoLinkDiagnosticOutput(action, string(output), configuredArgs, request)
 	if err != nil {
 		if ctx.Err() != nil {
 			err = fmt.Errorf("%w: %v", ctx.Err(), err)

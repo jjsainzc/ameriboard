@@ -42,10 +42,11 @@ type Handler struct {
 }
 
 type EchoLinkAction struct {
-	Action   string `json:"action"`
-	Callsign string `json:"callsign"`
-	IP       string `json:"ip"`
-	Message  string `json:"message"`
+	Action    string `json:"action"`
+	Callsign  string `json:"callsign"`
+	IP        string `json:"ip"`
+	Message   string `json:"message"`
+	Permanent bool   `json:"permanent"`
 }
 
 var nonPublicNetworks = []netip.Prefix{
@@ -379,7 +380,7 @@ func (h *Handler) executeEchoLinkAction(c echo.Context) error {
 
 func echoLinkLogAction(action string) string {
 	switch strings.ToLower(strings.TrimSpace(action)) {
-	case "connect", "disconnect", "ban", "ban-list", "unban", "mute", "unmute", "message":
+	case "connect", "disconnect", "ban", "ban-list", "unban", "mute", "unmute", "message", "retry-list", "retry-cancel":
 		return strings.ToLower(strings.TrimSpace(action))
 	default:
 		return "inválida"

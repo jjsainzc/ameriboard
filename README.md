@@ -125,6 +125,14 @@ verde indica audio habilitado), desconectar y banear cada estación. Las opcione
 generales permiten conectar, enviar mensajes y consultar la lista de baneados
 para desbanear indicativos. Los mensajes no admiten punto y coma ni saltos de
 línea, para evitar que se interpreten como comandos adicionales.
+
+Al conectar se puede marcar **Permanente**. Si la conexión falla, Ameriboard
+reintenta en segundo plano cada 12 segundos hasta lograrlo (máximo 32 destinos
+pendientes). La opción **Reintentos pendientes** muestra los destinos y el
+número de intentos, y permite cancelarlos; desconectar un destino también
+cancela su reintento. Los reintentos se guardan en memoria: se pierden al
+reiniciar el servicio. Cada intento queda registrado con el prefijo
+`EchoLink reintento:`.
 Para acciones en perfiles remotos se requiere la contraseña
 de administrador del sitio remoto; los tokens antiguos solo permiten consultar
 telemetría. Las solicitudes y los resultados de `tlbcmd` se registran en el

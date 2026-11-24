@@ -101,11 +101,13 @@ func run() error {
 	sites.SetEchoLinkActionExecutor(func(ctx context.Context, action profiles.EchoLinkAction) (string, error) {
 		return reflector.ExecuteEchoLinkAction(ctx, controllers.EchoLinkActionRequest{
 			Action: action.Action, Callsign: action.Callsign, IP: action.IP, Message: action.Message,
+			Permanent: action.Permanent,
 		})
 	})
 	sites.SetMainSettings(mainSettings, func(settings profiles.MainSettings) {
 		reflector.SetDashboardSettings(settings.Title, settings.Subtitle, settings.DVSwitchTitle)
 	})
+	defer reflector.Close()
 	e := newServer(basePath, frontend, reflector, sites)
 	tcp, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {

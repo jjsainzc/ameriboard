@@ -19,7 +19,7 @@
       @if (setupForm.controls.confirm.touched && setupForm.value.confirm !== setupForm.value.password) {
         <p class="error">Las contraseñas no coinciden.</p>
       }
-      <button type="submit" [disabled]="busy() || setupForm.invalid || setupForm.value.password !== setupForm.value.confirm">
+      <button type="submit" class="btn-dark btn-dark-primary" data-icon="👤" [disabled]="busy() || setupForm.invalid || setupForm.value.password !== setupForm.value.confirm">
         Crear administrador
       </button>
     </form>
@@ -30,10 +30,10 @@
         <input id="password" [type]="loginPasswordVisible() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" />
       </label>
       <label class="check"><input type="checkbox" [checked]="loginPasswordVisible()" (change)="loginPasswordVisible.set(!loginPasswordVisible())" /> Mostrar contraseña</label>
-      <button type="submit" [disabled]="busy() || loginForm.invalid">Iniciar sesión</button>
+      <button type="submit" class="btn-dark btn-dark-primary" data-icon="➜" [disabled]="busy() || loginForm.invalid">Iniciar sesión</button>
     </form>
   } @else {
-    <button type="button" (click)="logout()" [disabled]="busy()">Cerrar sesión</button>
+    <button type="button" class="btn-dark btn-dark-danger" data-icon="⎋" (click)="logout()" [disabled]="busy()">Cerrar sesión</button>
     <h2>Configuración principal</h2>
     <p>Estos valores se aplican al dashboard de esta instalación. Los perfiles remotos conservan sus propios valores.</p>
     @if (!mainSettingsLoaded()) {
@@ -50,7 +50,7 @@
           <input id="main-dvswitch-title" formControlName="dvSwitchTitle" maxlength="200" required />
         </label>
         <div class="actions">
-          <button type="submit" [disabled]="busy() || mainSettingsForm.invalid">Guardar configuración</button>
+          <button type="submit" class="btn-dark btn-dark-primary" data-icon="💾" [disabled]="busy() || mainSettingsForm.invalid">Guardar configuración</button>
         </div>
       </form>
     }
@@ -61,14 +61,14 @@
         <span>{{ site.url }}</span>
         <span>{{ site.visible ? 'Visible para visitantes' : 'Solo administradores' }}</span>
         <div class="actions">
-          <button type="button" (click)="edit(site)" [disabled]="busy()">Editar</button>
-          <button type="button" (click)="deleting.set(site.id)" [disabled]="busy()">Eliminar</button>
+          <button type="button" class="btn-dark" data-icon="✎" (click)="edit(site)" [disabled]="busy()">Editar</button>
+          <button type="button" class="btn-dark btn-dark-danger" data-icon="🗑" (click)="deleting.set(site.id)" [disabled]="busy()">Eliminar</button>
         </div>
         @if (deleting() === site.id) {
           <p>¿Eliminar este perfil?</p>
           <div class="actions">
-            <button type="button" (click)="delete(site.id)" [disabled]="busy()">Confirmar eliminación</button>
-            <button type="button" (click)="deleting.set(null)" [disabled]="busy()">Cancelar</button>
+            <button type="button" class="btn-dark btn-dark-danger" data-icon="🗑" (click)="delete(site.id)" [disabled]="busy()">Confirmar eliminación</button>
+            <button type="button" class="btn-dark" data-icon="✕" (click)="deleting.set(null)" [disabled]="busy()">Cancelar</button>
           </div>
         }
       </div>
@@ -76,7 +76,7 @@
       <p>No hay sitios configurados.</p>
     }
     @if (!siteFormOpen()) {
-      <button type="button" (click)="add()" [disabled]="busy()">Agregar sitio</button>
+      <button type="button" class="btn-dark" data-icon="➕" (click)="add()" [disabled]="busy()">Agregar sitio</button>
     }
     @if (siteFormOpen()) {
     <h2>{{ editing() ? 'Editar sitio' : 'Agregar sitio' }}</h2>
@@ -114,8 +114,8 @@
         </label>
       </fieldset>
       <div class="actions">
-        <button type="submit" [disabled]="busy() || siteForm.invalid || (!editing() && !siteForm.value.password)">Guardar</button>
-        <button type="button" (click)="cancel()" [disabled]="busy()">Cancelar</button>
+        <button type="submit" class="btn-dark btn-dark-primary" data-icon="💾" [disabled]="busy() || siteForm.invalid || (!editing() && !siteForm.value.password)">Guardar</button>
+        <button type="button" class="btn-dark" data-icon="✕" (click)="cancel()" [disabled]="busy()">Cancelar</button>
       </div>
     </form>
     }
