@@ -2,7 +2,7 @@
 
 > **NOTA**: Si hay alguna referencia al file que se Makefile, este fue retirado del codigo porque no es necesario para hacer compilaciones locales. 
 > esta es una primera version Beta funcional:
-> [Click aqui para ver dashboards digitales/echolink de Amerinet](http://159.203.177.35/ameriboard/)
+> [Click aqui para ver dashboards digitales/echolink de HC1LNM](https://jjsc.ddns.net/ameriboard/)
 
 Aplicación Angular servida por Go como un único binario, sin archivos web externos
 en tiempo de ejecución.
