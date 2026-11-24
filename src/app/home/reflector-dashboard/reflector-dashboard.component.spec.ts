@@ -14,6 +14,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
     http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
       header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
@@ -73,6 +74,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
     http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
       header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
@@ -145,6 +147,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     http.expectOne((request) => request.url.endsWith('/api/profiles')).flush([]);
     http.expectOne((request) => request.url.endsWith('/api/reflector-status')).flush({
       header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
@@ -172,6 +175,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     http.expectOne((request) => request.url.endsWith('/api/profiles')).flush([]);
     http.expectOne((request) => request.url.endsWith('/api/reflector-status'))
       .flush('error', { status: 500, statusText: 'Server Error' });
@@ -190,6 +194,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     const status = {
       header: { title: 'Local', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
       stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 }
@@ -223,6 +228,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     http.expectOne(request => request.url.endsWith('/api/profiles'))
       .flush([{ id: 'remote', name: 'Remoto', visible: true }]);
     http.expectOne(request => request.url.endsWith('/api/reflector-status'))
@@ -257,6 +263,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
     http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
       header: { title: 'Local', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
@@ -280,6 +287,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
     http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
       header: { title: 'Local', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
@@ -310,6 +318,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     const status = {
       header: { title: 'Local', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
       stats: { ysfConnectedNow: 1, ysfTx24h: 2, dmrTx24h: 3, stations24h: 4 }
@@ -344,6 +353,33 @@ describe('ReflectorDashboardComponent', () => {
     http.verify();
   });
 
+  it('shows direct EchoLink action failures in the table panel', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+      header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
+      echolinkAvailable: true,
+      echolinkConnectedList: [{ number: '1', user: 'TEST1', attribute: '' }]
+    });
+    fixture.detectChanges();
+    const panel = fixture.nativeElement.querySelector('[aria-labelledby="echolink-title"]') as HTMLElement;
+    (panel.querySelector('[aria-label="Mutear estación"]') as HTMLButtonElement).click();
+    http.expectOne(request => request.method === 'POST' && request.url.endsWith('/api/admin/echolink/action'))
+      .flush({ message: 'No se pudo ejecutar tlbcmd' }, { status: 400, statusText: 'Bad Request' });
+    fixture.detectChanges();
+    expect(panel.querySelector('[role="alert"]')?.textContent).toContain('No se pudo ejecutar tlbcmd');
+    fixture.destroy();
+    http.verify();
+  });
+
   it('hides unavailable EchoLink and shows its attribute legend when available', async () => {
     await TestBed.configureTestingModule({
       imports: [ReflectorDashboardComponent],
@@ -352,6 +388,7 @@ describe('ReflectorDashboardComponent', () => {
     const fixture = TestBed.createComponent(ReflectorDashboardComponent);
     fixture.detectChanges();
     const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
     const status = {
       header: { title: 'Local', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
       stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 }

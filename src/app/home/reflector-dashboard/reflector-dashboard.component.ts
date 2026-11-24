@@ -1,8 +1,11 @@
 import { DatePipe } from '@angular/common';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { DOCUMENT } from '@angular/common';
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { ReflectorService, SiteProfile } from '../../core/services/reflector.service';
+import { EchoLinkStation } from '../../core/models/reflector.model';
 import { TablePagination, TablePaginationComponent } from '../../shared/table-pagination/table-pagination.component';
 
 @Component({
@@ -14,12 +17,25 @@ import { TablePagination, TablePaginationComponent } from '../../shared/table-pa
 export class ReflectorDashboardComponent implements OnInit {
   private readonly reflectorService = inject(ReflectorService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly http = inject(HttpClient);
+  private readonly document = inject(DOCUMENT);
+  private readonly base = (this.document.querySelector('base')?.getAttribute('href') ?? '/').replace(/\/$/, '');
+  private readonly headers = new HttpHeaders({ 'X-Ameriboard-Request': '1' });
 
   readonly data = this.reflectorService.data;
   readonly error = this.reflectorService.error;
   readonly loading = this.reflectorService.loading;
   readonly profiles = signal<SiteProfile[]>([]);
   readonly profilesError = signal('');
+  readonly echolinkAdmin = signal(false);
+  readonly echolinkActionBusy = signal(false);
+  readonly echolinkActionNotice = signal('');
+  readonly echolinkActionError = signal('');
+  readonly selectedProfileId = signal('');
+  readonly actionDialogStation = signal('');
+  readonly actionDialogAction = signal('');
+  readonly actionDialogInput = signal('');
+  readonly actionDialogIp = signal('');
   readonly ysfConnectedPages = new TablePagination(computed(() => this.data()?.ysfConnected ?? []));
   readonly ysfLastHeardPages = new TablePagination(computed(() => this.data()?.ysfLastHeard ?? []));
   readonly echolinkConnectedPages = new TablePagination(computed(() => this.data()?.echolinkConnected ?? []));
@@ -59,6 +75,10 @@ export class ReflectorDashboardComponent implements OnInit {
       next: profiles => this.profiles.set(profiles),
       error: () => this.profilesError.set('No se pudo cargar la lista de sitios; el dashboard local sigue disponible.')
     });
+    this.http.get(`${this.base}/api/admin/profiles`).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => this.echolinkAdmin.set(true),
+      error: () => this.echolinkAdmin.set(false)
+    });
   }
 
   selectProfile(event: Event): void {
@@ -66,10 +86,72 @@ export class ReflectorDashboardComponent implements OnInit {
       this.echolinkLastHeardPages, this.dvSwitchPages]) {
       pagination.reset();
     }
-    this.reflectorService.selectProfile((event.target as HTMLSelectElement).value);
+    const profileId = (event.target as HTMLSelectElement).value;
+    this.selectedProfileId.set(profileId);
+    this.reflectorService.selectProfile(profileId);
   }
 
   refresh(): void {
     this.reflectorService.refresh();
+  }
+
+  echolinkMute(station: EchoLinkStation, muted: boolean): void {
+    this.executeEchoLinkAction(muted ? 'unmute' : 'mute', station.user);
+  }
+
+  echolinkDisconnect(station: EchoLinkStation): void {
+    this.executeEchoLinkAction('disconnect', station.user);
+  }
+
+  openEchoLinkAction(dialog: HTMLDialogElement, action: string, station: string = ''): void {
+    this.actionDialogAction.set(action);
+    this.actionDialogStation.set(station);
+    this.actionDialogInput.set(action === 'ban' ? station : '');
+    this.actionDialogIp.set('');
+    dialog.showModal();
+  }
+
+  submitEchoLinkAction(dialog: HTMLDialogElement): void {
+    const action = this.actionDialogAction();
+    const station = this.actionDialogStation();
+    const body: Record<string, string> = { action };
+    if (action === 'connect') {
+      body['callsign'] = this.actionDialogInput();
+    } else if (action === 'ban') {
+      body['callsign'] = this.actionDialogInput();
+      body['ip'] = this.actionDialogIp();
+    } else if (action === 'disconnect') {
+      body['callsign'] = station;
+    } else if (action === 'message') {
+      body['message'] = this.actionDialogInput();
+    }
+    this.executeEchoLinkAction(action, body['callsign'] ?? '', body, dialog);
+  }
+
+  private executeEchoLinkAction(action: string, callsign: string = '', body?: Record<string, string>, dialog?: HTMLDialogElement): void {
+    if (this.echolinkActionBusy()) { return; }
+    this.echolinkActionBusy.set(true);
+    this.echolinkActionNotice.set('');
+    this.echolinkActionError.set('');
+    const profileId = this.selectedProfileId();
+    const url = profileId
+      ? `${this.base}/api/profiles/${encodeURIComponent(profileId)}/echolink/action`
+      : `${this.base}/api/admin/echolink/action`;
+    const payload = body ?? { action, callsign };
+    this.http.post<{ output?: string }>(url, payload, { headers: this.headers })
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: response => {
+          this.echolinkActionBusy.set(false);
+          this.echolinkActionNotice.set(response.output || 'Acción EchoLink ejecutada.');
+          dialog?.close();
+          this.reflectorService.refresh();
+        },
+        error: error => {
+          this.echolinkActionBusy.set(false);
+          const message = error instanceof HttpErrorResponse && typeof error.error?.message === 'string'
+            ? error.error.message : 'No se pudo ejecutar la acción EchoLink.';
+          this.echolinkActionError.set(message);
+        }
+      });
   }
 }

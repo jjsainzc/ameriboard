@@ -165,6 +165,8 @@
           <button type="button" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda de atributos</button>
         </div>
       </div>
+      @if (echolinkActionError()) { <p class="echolink-action-feedback echolink-action-error" role="alert">{{ echolinkActionError() }}</p> }
+      @if (echolinkActionNotice()) { <p class="echolink-action-feedback" role="status">{{ echolinkActionNotice() }}</p> }
       @if (d.echolinkUptime !== '—') {
         <div class="echolink-uptime mono">{{ d.echolinkUptime }}</div>
       }
@@ -176,6 +178,7 @@
               <th>#</th>
               <th>Usuario</th>
               <th>Atributo</th>
+              @if (echolinkAdmin()) { <th>Acciones</th> }
             </tr>
           </thead>
           <tbody>
@@ -184,10 +187,26 @@
                 <td data-label="#" class="mono">{{ station.number }}</td>
                 <td data-label="Usuario" class="callsign">{{ station.user }}</td>
                 <td data-label="Atributo" class="mono">{{ station.attribute || '—' }}</td>
+                @if (echolinkAdmin()) {
+                  <td data-label="Acciones" class="echolink-row-actions">
+                    <button type="button" class="icon-action"
+                      [attr.aria-label]="station.attribute.includes('m') || station.attribute.includes('M') ? 'Desmutear estación' : 'Mutear estación'"
+                      [attr.title]="station.attribute.includes('m') || station.attribute.includes('M') ? 'Desmutear' : 'Mutear'"
+                      [disabled]="echolinkActionBusy()"
+                      (click)="echolinkMute(station, station.attribute.includes('m') || station.attribute.includes('M'))">
+                      {{ station.attribute.includes('m') || station.attribute.includes('M') ? '🔊' : '🔇' }}
+                    </button>
+                    <button type="button" class="icon-action" aria-label="Desconectar estación" title="Desconectar"
+                      [disabled]="echolinkActionBusy()" (click)="echolinkDisconnect(station)">✖</button>
+                    <button type="button" class="icon-action" aria-haspopup="dialog" aria-label="Más acciones EchoLink"
+                      title="Más acciones" [disabled]="echolinkActionBusy()"
+                      (click)="openEchoLinkAction(actionDialog, 'menu', station.user)">⋯</button>
+                  </td>
+                }
               </tr>
             } @empty {
               <tr>
-                <td colspan="3" class="empty-msg">{{ echolinkConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay nodos EchoLink conectados' }}</td>
+                <td [attr.colspan]="echolinkAdmin() ? 4 : 3" class="empty-msg">{{ echolinkConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay nodos EchoLink conectados' }}</td>
               </tr>
             }
           </tbody>
@@ -239,6 +258,36 @@
         </tbody>
       </table>
       <button type="button" (click)="legendDialog.close()">Cerrar</button>
+    </dialog>
+    <dialog #actionDialog class="echolink-action-dialog" aria-labelledby="echolink-action-title">
+      <h2 id="echolink-action-title">Acción EchoLink</h2>
+      @if (echolinkActionError()) { <p class="echolink-action-error" role="alert">{{ echolinkActionError() }}</p> }
+      @if (echolinkActionNotice()) { <p role="status">{{ echolinkActionNotice() }}</p> }
+      @if (actionDialogAction() === 'menu') {
+        <div class="echolink-action-menu">
+          <button type="button" (click)="openEchoLinkAction(actionDialog, 'connect')" [disabled]="echolinkActionBusy()">Conectar</button>
+          <button type="button" (click)="openEchoLinkAction(actionDialog, 'ban', actionDialogStation())" [disabled]="echolinkActionBusy()">Bloquear</button>
+          <button type="button" (click)="openEchoLinkAction(actionDialog, 'message')" [disabled]="echolinkActionBusy()">Mensaje</button>
+        </div>
+      } @else if (actionDialogAction() === 'connect' || actionDialogAction() === 'ban') {
+        <label>
+          Indicativo
+          <input [value]="actionDialogInput()"
+            (input)="actionDialogInput.set($any($event.target).value)" />
+        </label>
+        @if (actionDialogAction() === 'ban') {
+          <label>Dirección o nombre opcional
+            <input [value]="actionDialogIp()" (input)="actionDialogIp.set($any($event.target).value)" />
+          </label>
+        }
+        <button type="button" (click)="submitEchoLinkAction(actionDialog)" [disabled]="echolinkActionBusy() || !actionDialogInput() && actionDialogAction() === 'connect'">Aplicar</button>
+      } @else if (actionDialogAction() === 'message') {
+        <label>Mensaje
+          <input [value]="actionDialogInput()" (input)="actionDialogInput.set($any($event.target).value)" />
+        </label>
+        <button type="button" (click)="submitEchoLinkAction(actionDialog)" [disabled]="echolinkActionBusy() || !actionDialogInput()">Enviar</button>
+      }
+      <button type="button" (click)="actionDialog.close()">Cerrar</button>
     </dialog>
     }
 

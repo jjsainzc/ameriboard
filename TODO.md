@@ -32,3 +32,4 @@ I: 2026-11-23 10:00:55.589 P25, Begin TX: src=7400203 rpt=740020306 dst=740 slot
 M: 2026-11-23 10:00:58.386 P25, TX state = OFF
 ```
 
+- [x] 5. Siguiendo las instrucciones de este manual /home/hc1lnm/Documents/AngularPro/ameriboard/doc/tlbcmd-commands.txt implementar en la tabla de echolink, para administradores, en la misma tabla de echolink, crear una columna de acciones con iconos que se activan o se desactivan por ejemmplo para las opciones mutear/desmutear, para desconectar una X, para las demas opciones poner un menu desplegable que permita las operaciones usando ventanas flotantes, cuando sean necesario, en principio implementar connect,disconnect, ban, mute, message

@@ -185,6 +185,51 @@
   gap: .5rem;
 }
 
+.echolink-row-actions {
+  white-space: nowrap;
+}
+
+.icon-action {
+  width: 2rem;
+  height: 2rem;
+  margin-right: .25rem;
+  padding: 0;
+  border: 1px solid #64748b;
+  border-radius: .35rem;
+  background: #1e293b;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.icon-action:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.echolink-action-dialog {
+  box-sizing: border-box;
+  width: min(28rem, 95vw);
+  border: 1px solid #64748b;
+  background: #131724;
+  color: #e2e8f0;
+
+  h2 { margin-top: 0; }
+  label { display: grid; gap: .35rem; margin: .75rem 0; }
+  input { padding: .55rem; border: 1px solid #94a3b8; background: #0f172a; color: #f8fafc; }
+  button { margin-right: .35rem; padding: .45rem .65rem; border: 1px solid #94a3b8; background: #164e63; color: #fff; }
+  &::backdrop { background: #000b; }
+}
+
+.echolink-action-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: .75rem;
+}
+
+.echolink-action-error { color: #fca5a5; }
+.echolink-action-feedback { margin: .75rem 1rem; }
+
 .echolink-actions button, .echolink-legend button {
   padding: .4rem;
   border: 1px solid #94a3b8;

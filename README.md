@@ -118,6 +118,18 @@ sesión en `echolink-history.json` dentro de `--state-dir` (por defecto
 conexión. El archivo conserva el inicio de sesiones activas para continuar el
 cálculo si se reinicia el servicio.
 
+Tras iniciar sesión como administrador, la tabla de conectados permite enviar
+acciones a EchoLink. Para acciones en perfiles remotos se requiere la contraseña
+de administrador del sitio remoto; los tokens antiguos solo permiten consultar
+telemetría. Las solicitudes y los resultados de `tlbcmd` se registran en el
+servidor que ejecuta la acción; para perfiles remotos, revisa también los
+registros del servidor remoto. Ameriboard no registra deliberadamente las
+credenciales ni el texto de los mensajes. La respuesta se omite para mensajes y cuando hay argumentos
+adicionales en el comando configurado. En los demás casos puede contener
+indicativos u otros datos sensibles del servicio: revísala antes de compartirla.
+Un proceso finalizado no garantiza por sí solo que theBridge haya aceptado la
+operación; revisa la respuesta registrada.
+
 ## Sitios remotos y perfiles
 
 Cada instalación puede consultar otras instalaciones Ameriboard por HTTP o HTTPS. Un
@@ -204,6 +216,12 @@ servicio informa del error para que lo resuelva el administrador.
 sudo systemctl restart ameriboard.service
 sudo systemctl status ameriboard.service
 sudo journalctl -u ameriboard.service -b
+```
+
+Para seguir las acciones de EchoLink durante una prueba:
+
+```bash
+sudo journalctl -u ameriboard.service -f
 ```
 
 ### Proxy inverso

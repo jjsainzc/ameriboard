@@ -29,15 +29,23 @@ type session struct {
 }
 
 type Handler struct {
-	store          *Store
-	client         *http.Client
-	cookiePath     string
-	mu             sync.Mutex
-	mainSettings   MainSettings
-	applySettings  func(MainSettings)
-	sessions       map[string]session
-	login          *rate.Limiter
-	remoteFailures *rate.Limiter
+	store           *Store
+	client          *http.Client
+	cookiePath      string
+	mu              sync.Mutex
+	mainSettings    MainSettings
+	applySettings   func(MainSettings)
+	sessions        map[string]session
+	login           *rate.Limiter
+	remoteFailures  *rate.Limiter
+	executeEchoLink func(context.Context, EchoLinkAction) (string, error)
+}
+
+type EchoLinkAction struct {
+	Action   string `json:"action"`
+	Callsign string `json:"callsign"`
+	IP       string `json:"ip"`
+	Message  string `json:"message"`
 }
 
 var nonPublicNetworks = []netip.Prefix{
@@ -131,6 +139,10 @@ func NewHandler(store *Store) *Handler {
 	}
 }
 
+func (h *Handler) SetEchoLinkActionExecutor(executor func(context.Context, EchoLinkAction) (string, error)) {
+	h.executeEchoLink = executor
+}
+
 func publicDial(ctx context.Context, network, address string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
@@ -162,6 +174,8 @@ func (h *Handler) Register(group *echo.Group, basePath string, status echo.Handl
 	group.GET("/api/admin/setup", h.setupStatus)
 	group.POST("/api/admin/setup", h.setupAdmin)
 	group.POST("/api/admin/logout", h.logoutAdmin)
+	group.POST("/api/admin/echolink/action", h.executeEchoLinkAction)
+	group.POST("/api/profiles/:id/echolink/action", h.profileEchoLinkAction)
 	group.GET("/api/admin/profiles", h.adminProfiles)
 	group.GET("/api/admin/settings", h.adminSettings)
 	group.PUT("/api/admin/settings", h.updateAdminSettings)
@@ -334,6 +348,120 @@ func (h *Handler) logoutAdmin(c echo.Context) error {
 	c.SetCookie(&http.Cookie{Name: "ameriboard_admin", Path: h.cookiePath, HttpOnly: true, Secure: secureRequest(c.Request()),
 		SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (h *Handler) executeEchoLinkAction(c echo.Context) error {
+	if !h.adminActionAuthorized(c) {
+		c.Logger().Warn("EchoLink local: solicitud rechazada por falta de autorización")
+		return echo.ErrUnauthorized
+	}
+	if h.executeEchoLink == nil {
+		c.Logger().Error("EchoLink local: ejecutor no configurado")
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "Las acciones de EchoLink no están disponibles")
+	}
+	var request EchoLinkAction
+	if err := decodeBody(c, &request); err != nil {
+		c.Logger().Warnf("EchoLink local: solicitud inválida (tipo de error %T)", err)
+		return echo.ErrBadRequest
+	}
+	action := echoLinkLogAction(request.Action)
+	started := time.Now()
+	c.Logger().Infof("EchoLink local: acción=%q iniciada", action)
+	output, err := h.executeEchoLink(c.Request().Context(), request)
+	if err != nil {
+		c.Logger().Errorf("EchoLink local: acción=%q falló duración=%s error=%q", action, time.Since(started).Round(time.Millisecond), err)
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error()).SetInternal(err)
+	}
+	c.Logger().Infof("EchoLink local: acción=%q proceso finalizado duración=%s", action, time.Since(started).Round(time.Millisecond))
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, map[string]string{"output": output})
+}
+
+func echoLinkLogAction(action string) string {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "connect", "disconnect", "ban", "mute", "unmute", "message":
+		return strings.ToLower(strings.TrimSpace(action))
+	default:
+		return "inválida"
+	}
+}
+
+func (h *Handler) adminActionAuthorized(c echo.Context) bool {
+	if adminRequest(c) && h.authenticated(c) {
+		return true
+	}
+	_, password, ok := c.Request().BasicAuth()
+	if ok {
+		hash, err := h.store.credential("admin")
+		if err != nil || len(password) > 72 {
+			return false
+		}
+		return bcrypt.CompareHashAndPassword(hash, []byte(password)) == nil
+	}
+	return false
+}
+
+func (h *Handler) profileEchoLinkAction(c echo.Context) error {
+	if !adminRequest(c) || !h.authenticated(c) {
+		c.Logger().Warn("EchoLink remoto: solicitud rechazada por falta de autorización")
+		return echo.ErrUnauthorized
+	}
+	body, err := io.ReadAll(io.LimitReader(c.Request().Body, 16*1024))
+	if err != nil {
+		c.Logger().Warnf("EchoLink remoto: no se pudo leer la solicitud: %v", err)
+		return echo.ErrBadRequest
+	}
+	var action EchoLinkAction
+	if err := json.Unmarshal(body, &action); err != nil {
+		c.Logger().Warnf("EchoLink remoto: solicitud inválida (tipo de error %T)", err)
+		return echo.ErrBadRequest
+	}
+	logAction := echoLinkLogAction(action.Action)
+	profiles, err := h.store.list()
+	if err != nil {
+		c.Logger().Errorf("EchoLink remoto: no se pueden leer perfiles: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "No se pueden leer los perfiles").SetInternal(err)
+	}
+	for _, profile := range profiles {
+		if profile.ID != c.Param("id") {
+			continue
+		}
+		started := time.Now()
+		c.Logger().Infof("EchoLink remoto: perfil=%q acción=%q iniciada", profile.ID, logAction)
+		if profile.Password == "" {
+			c.Logger().Warnf("EchoLink remoto: perfil=%q acción=%q sin contraseña de administrador", profile.ID, logAction)
+			return echo.NewHTTPError(http.StatusBadGateway, "El perfil remoto requiere una contraseña de administrador")
+		}
+		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodPost, profile.URL+"/api/admin/echolink/action", strings.NewReader(string(body)))
+		if err != nil {
+			c.Logger().Errorf("EchoLink remoto: perfil=%q acción=%q dirección inválida", profile.ID, logAction)
+			return echo.NewHTTPError(http.StatusBadGateway, "Dirección del sitio inválida").SetInternal(err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", c.Request().Host)
+		req.Header.Set("X-Ameriboard-Request", "1")
+		req.SetBasicAuth("", profile.Password)
+		response, err := h.client.Do(req)
+		if err != nil {
+			c.Logger().Errorf("EchoLink remoto: perfil=%q acción=%q fallo de conexión duración=%s error=%q", profile.ID, logAction, time.Since(started).Round(time.Millisecond), err)
+			return echo.NewHTTPError(http.StatusBadGateway, "No se puede conectar al sitio remoto").SetInternal(err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			c.Logger().Errorf("EchoLink remoto: perfil=%q acción=%q HTTP=%d duración=%s", profile.ID, logAction, response.StatusCode, time.Since(started).Round(time.Millisecond))
+			return echo.NewHTTPError(http.StatusBadGateway, "El sitio remoto no pudo ejecutar la acción").SetInternal(fmt.Errorf("estado HTTP %d", response.StatusCode))
+		}
+		c.Logger().Infof("EchoLink remoto: perfil=%q acción=%q HTTP=%d duración=%s", profile.ID, logAction, response.StatusCode, time.Since(started).Round(time.Millisecond))
+		c.Response().Header().Set("Cache-Control", "no-store")
+		c.Response().WriteHeader(http.StatusOK)
+		_, err = io.Copy(c.Response(), response.Body)
+		if err != nil {
+			c.Logger().Errorf("EchoLink remoto: perfil=%q acción=%q error al transmitir respuesta: %v", profile.ID, logAction, err)
+		}
+		return err
+	}
+	c.Logger().Warnf("EchoLink remoto: perfil no encontrado acción=%q", logAction)
+	return echo.ErrNotFound
 }
 
 type publicProfile struct {

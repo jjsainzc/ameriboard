@@ -23,6 +23,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	gommonlog "github.com/labstack/gommon/log"
 )
 
 var validBasePath = regexp.MustCompile(`^(/[A-Za-z0-9._~-]+)*$`)
@@ -97,6 +98,11 @@ func run() error {
 		BridgeConfigDir:     "/opt",
 	})
 	sites := profiles.NewHandler(store)
+	sites.SetEchoLinkActionExecutor(func(ctx context.Context, action profiles.EchoLinkAction) (string, error) {
+		return reflector.ExecuteEchoLinkAction(ctx, controllers.EchoLinkActionRequest{
+			Action: action.Action, Callsign: action.Callsign, IP: action.IP, Message: action.Message,
+		})
+	})
 	sites.SetMainSettings(mainSettings, func(settings profiles.MainSettings) {
 		reflector.SetDashboardSettings(settings.Title, settings.Subtitle, settings.DVSwitchTitle)
 	})
@@ -164,6 +170,7 @@ func notifyReady() error {
 func newServer(basePath string, frontend http.Handler, reflector *controllers.ReflectorService, sites *profiles.Handler) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
+	e.Logger.SetLevel(gommonlog.INFO)
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 

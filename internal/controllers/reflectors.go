@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -267,6 +268,102 @@ type dmrAgg struct {
 	times     int
 	totalSecs float64
 	lastSeen  time.Time
+}
+
+type EchoLinkActionRequest struct {
+	Action   string `json:"action"`
+	Callsign string `json:"callsign"`
+	IP       string `json:"ip"`
+	Message  string `json:"message"`
+}
+
+func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request EchoLinkActionRequest) (string, error) {
+	s.mu.RLock()
+	command := s.cfg.EchoLinkCommand
+	s.mu.RUnlock()
+	command = strings.TrimSpace(command)
+	if command == "" {
+		command = "tlbcmd"
+	}
+	parts := strings.Fields(command)
+	if len(parts) == 0 {
+		return "", errors.New("comando EchoLink vacío")
+	}
+
+	callsign := strings.TrimSpace(request.Callsign)
+	args := append([]string{}, parts[1:]...)
+	action := strings.ToLower(strings.TrimSpace(request.Action))
+	switch action {
+	case "connect":
+		if callsign == "" {
+			return "", errors.New("el indicativo de destino es obligatorio")
+		}
+		args = append(args, "connect", callsign)
+	case "disconnect":
+		if callsign == "" {
+			return "", errors.New("el indicativo a desconectar es obligatorio")
+		}
+		args = append(args, "disconnect", callsign)
+	case "ban":
+		if callsign == "" {
+			return "", errors.New("el indicativo a bloquear es obligatorio")
+		}
+		args = append(args, "ban", "add", callsign)
+		if ip := strings.TrimSpace(request.IP); ip != "" {
+			args = append(args, ip)
+		}
+	case "mute":
+		if callsign == "" {
+			return "", errors.New("el indicativo a silenciar es obligatorio")
+		}
+		args = append(args, "mute", callsign)
+	case "unmute":
+		if callsign == "" {
+			return "", errors.New("el indicativo a desilenciar es obligatorio")
+		}
+		args = append(args, "unmute", callsign)
+	case "message":
+		message := strings.TrimSpace(request.Message)
+		if message == "" {
+			return "", errors.New("el mensaje es obligatorio")
+		}
+		args = append(args, "message", message)
+	default:
+		return "", errors.New("acción EchoLink no válida")
+	}
+
+	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, parts[0], args...).CombinedOutput()
+	diagnostic := echoLinkDiagnosticOutput(action, string(output), parts[1:], request)
+	if err != nil {
+		if ctx.Err() != nil {
+			err = fmt.Errorf("%w: %v", ctx.Err(), err)
+		}
+		log.Printf("EchoLink tlbcmd: acción=%q error=%q respuesta=%q", action, err, diagnostic)
+		return "", fmt.Errorf("ejecutar acción EchoLink: %w", err)
+	}
+	log.Printf("EchoLink tlbcmd: acción=%q proceso finalizado respuesta=%q", action, diagnostic)
+	return strings.TrimSpace(string(output)), nil
+}
+
+func echoLinkDiagnosticOutput(action, output string, configuredArgs []string, request EchoLinkActionRequest) string {
+	if action == "message" {
+		return "[omitida para proteger el mensaje]"
+	}
+	if len(configuredArgs) > 0 {
+		return "[omitida porque el comando tiene argumentos configurados]"
+	}
+	for _, secret := range []string{request.Message, request.IP} {
+		if secret != "" {
+			output = strings.ReplaceAll(output, secret, "[omitido]")
+		}
+	}
+	const maxOutput = 2048
+	if len(output) > maxOutput {
+		output = output[:maxOutput] + " [truncada]"
+	}
+	return strings.TrimSpace(output)
 }
 
 func (s *ReflectorService) GetStatus(c echo.Context) error {
