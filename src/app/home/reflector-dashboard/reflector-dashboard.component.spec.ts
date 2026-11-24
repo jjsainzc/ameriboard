@@ -420,6 +420,11 @@ describe('ReflectorDashboardComponent', () => {
       const globalMenu = panel.querySelector('.admin-menu')!;
       const buttons = Array.from(globalMenu.querySelectorAll('button'));
       expect(buttons.map(button => button.textContent?.trim())).toEqual(['Conectar', 'Mensaje', 'Lista de baneados', 'Reintentos pendientes']);
+      (globalMenu as HTMLDetailsElement).open = true;
+      globalMenu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect((globalMenu as HTMLDetailsElement).open).toBe(true);
+      document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      expect((globalMenu as HTMLDetailsElement).open).toBe(false);
       buttons[2].click();
       const listRequest = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
       expect(listRequest.request.body).toEqual({ action: 'ban-list' });
@@ -451,8 +456,94 @@ describe('ReflectorDashboardComponent', () => {
       (Array.from(dialog.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Aplicar') as HTMLButtonElement).click();
       const connect = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
       expect(connect.request.body).toEqual({ action: 'connect', callsign: 'W1AW', permanent: true });
+      fixture.detectChanges();
+      expect(dialog.close).toHaveBeenCalled();
+      const connecting = panel.querySelector('tr.echolink-connecting')!;
+      expect(connecting.textContent).toContain('W1AW');
+      expect(connecting.textContent).toContain('Conectando');
+      expect(connecting.getAttribute('aria-busy')).toBe('true');
       connect.flush({ output: 'No se pudo conectar con W1AW; se reintentará cada 12 s en segundo plano.' });
       http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+      fixture.detectChanges();
+      expect(panel.querySelector('tr.echolink-connecting')).toBeNull();
+      expect(panel.textContent).toContain('se reintentará');
+
+      (panel.querySelector('[aria-label="Desconectar estación"]') as HTMLButtonElement).click();
+      const disconnect = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
+      fixture.detectChanges();
+      const disconnecting = panel.querySelector('tr.echolink-disconnecting')!;
+      expect(disconnecting.textContent).toContain('TEST1');
+      expect(disconnecting.textContent).toContain('Desconectando');
+      expect(disconnecting.getAttribute('aria-busy')).toBe('true');
+      disconnect.flush({ message: 'Error al desconectar' }, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+      expect(panel.querySelector('tr.echolink-disconnecting')).toBeNull();
+      expect(panel.querySelector('[role="alert"]')?.textContent).toContain('Error al desconectar');
+      (panel.querySelector('[aria-label="Desconectar estación"]') as HTMLButtonElement).click();
+      http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'))
+        .flush({ output: 'tlbcmd Version 0.56 0 TEST1 disconnected' });
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+      fixture.detectChanges();
+      expect(panel.textContent).not.toContain('tlbcmd Version');
+
+      buttons[0].click();
+      fixture.componentInstance.actionDialogInput.set('test1');
+      fixture.componentInstance.submitEchoLinkAction(dialog);
+      const reconnect = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
+      fixture.detectChanges();
+      expect(panel.querySelectorAll('tr.echolink-connecting')).toHaveLength(1);
+      expect(panel.querySelector('tr.echolink-connecting')?.textContent).toContain('TEST1');
+      reconnect.flush({ message: 'Error al conectar' }, { status: 400, statusText: 'Bad Request' });
+      fixture.detectChanges();
+      expect(panel.querySelector('tr.echolink-connecting')).toBeNull();
+      expect(panel.querySelector('[role="alert"]')?.textContent).toContain('Error al conectar');
+      fixture.destroy();
+      http.verify();
+    });
+
+    it('hides confirmation while the setup password is visible and restores its validation', async () => {
+      await TestBed.configureTestingModule({
+        imports: [ReflectorDashboardComponent],
+        providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+      }).compileComponents();
+      const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+      fixture.detectChanges();
+      const http = TestBed.inject(HttpTestingController);
+      http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
+      http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+        header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+        stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 }
+      });
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const dialog = root.querySelector('#admin-dialog-title')!.closest('dialog') as HTMLDialogElement;
+      dialog.showModal = vi.fn();
+      dialog.close = vi.fn();
+      (Array.from(root.querySelectorAll('button')).find(button => button.textContent?.trim() === 'Admin')!).click();
+      http.expectOne(request => request.url.endsWith('/api/admin/setup')).flush({ required: true });
+      fixture.detectChanges();
+      fixture.componentInstance.adminForm.patchValue({ password: 'password123', confirm: 'wrong' });
+      (dialog.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      fixture.detectChanges();
+      expect(dialog.textContent).toContain('coincidir con la confirmación');
+      (dialog.querySelector('[aria-label="Mostrar contraseña"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(dialog.querySelector('#dashboard-admin-confirm')).toBeNull();
+      (dialog.querySelector('[aria-label="Ocultar contraseña"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(dialog.querySelector('#dashboard-admin-confirm')).not.toBeNull();
+      (dialog.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      fixture.detectChanges();
+      expect(dialog.textContent).toContain('coincidir con la confirmación');
+      (dialog.querySelector('[aria-label="Mostrar contraseña"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      fixture.componentInstance.adminForm.patchValue({ confirm: '' });
+      (dialog.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));
+      const setup = http.expectOne(request => request.url.endsWith('/api/admin/setup') && request.method === 'POST');
+      expect(setup.request.body).toEqual({ password: 'password123' });
+      setup.flush(null, { status: 204, statusText: 'No Content' });
+      http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
       fixture.destroy();
       http.verify();
     });

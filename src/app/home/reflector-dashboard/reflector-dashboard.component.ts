@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
-import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, ElementRef, inject, OnInit, signal, viewChildren } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -13,7 +13,8 @@ import { TablePagination, TablePaginationComponent } from '../../shared/table-pa
   selector: 'app-reflector-dashboard',
   imports: [RouterLink, DatePipe, ReactiveFormsModule, TablePaginationComponent],
   templateUrl: './reflector-dashboard.component.html',
-  styleUrl: './reflector-dashboard.components.scss'
+  styleUrl: './reflector-dashboard.components.scss',
+  host: { '(document:click)': 'closeMenusOnOutsideClick($event)' }
 })
 export class ReflectorDashboardComponent implements OnInit {
   private readonly reflectorService = inject(ReflectorService);
@@ -23,6 +24,7 @@ export class ReflectorDashboardComponent implements OnInit {
   private readonly fb = inject(FormBuilder).nonNullable;
   private readonly base = (this.document.querySelector('base')?.getAttribute('href') ?? '/').replace(/\/$/, '');
   private readonly headers = new HttpHeaders({ 'X-Ameriboard-Request': '1' });
+  private readonly dropdownMenus = viewChildren<ElementRef<HTMLDetailsElement>>('dropdownMenu');
 
   readonly data = this.reflectorService.data;
   readonly error = this.reflectorService.error;
@@ -39,6 +41,7 @@ export class ReflectorDashboardComponent implements OnInit {
     confirm: ['']
   });
   readonly echolinkActionBusy = signal(false);
+  readonly pendingEchoLinkAction = signal<{ action: 'connect' | 'disconnect'; callsign: string } | null>(null);
   readonly echolinkActionNotice = signal('');
   readonly echolinkActionError = signal('');
   readonly selectedProfileId = signal('');
@@ -52,6 +55,9 @@ export class ReflectorDashboardComponent implements OnInit {
   readonly ysfConnectedPages = new TablePagination(computed(() => this.data()?.ysfConnected ?? []));
   readonly ysfLastHeardPages = new TablePagination(computed(() => this.data()?.ysfLastHeard ?? []));
   readonly echolinkConnectedPages = new TablePagination(computed(() => this.data()?.echolinkConnected ?? []));
+  readonly pendingEchoLinkStationVisible = computed(() =>
+    this.echolinkConnectedPages.rows().some(station => this.pendingStationAction(station.user) !== null)
+  );
   readonly echolinkLastHeardPages = new TablePagination(computed(() => this.data()?.echolinkLastHeard ?? []), station => [
     station.callsign, station.duration, station.disconnectedAt,
     new DatePipe('en-US').transform(station.disconnectedAt, 'dd/MM/yyyy HH:mm:ss') ?? ''
@@ -111,6 +117,14 @@ export class ReflectorDashboardComponent implements OnInit {
     this.reflectorService.refresh();
   }
 
+  closeMenusOnOutsideClick(event: MouseEvent): void {
+    if (event.target instanceof Node) {
+      for (const menu of this.dropdownMenus()) {
+        if (!menu.nativeElement.contains(event.target)) { menu.nativeElement.open = false; }
+      }
+    }
+  }
+
   openAdminLogin(dialog: HTMLDialogElement): void {
     this.adminForm.reset();
     this.adminPasswordVisible.set(false);
@@ -131,6 +145,11 @@ export class ReflectorDashboardComponent implements OnInit {
     dialog.close();
   }
 
+  toggleAdminPasswordVisibility(): void {
+    this.adminPasswordVisible.update(visible => !visible);
+    this.adminError.set('');
+  }
+
   cancelAdminDialog(event: Event): void {
     if (this.adminBusy()) {
       event.preventDefault();
@@ -145,7 +164,7 @@ export class ReflectorDashboardComponent implements OnInit {
     const setup = this.adminSetupRequired();
     const { password, confirm } = this.adminForm.getRawValue();
     if (this.adminBusy() || setup === null || this.adminForm.invalid) { return; }
-    if (setup && (password.length < 8 || password !== confirm)) {
+    if (setup && (password.length < 8 || (!this.adminPasswordVisible() && password !== confirm))) {
       this.adminError.set('La contraseña debe tener al menos 8 caracteres y coincidir con la confirmación.');
       return;
     }
@@ -203,6 +222,7 @@ export class ReflectorDashboardComponent implements OnInit {
   }
 
   openEchoLinkAction(dialog: HTMLDialogElement, action: string, station: string = ''): void {
+    for (const menu of this.dropdownMenus()) { menu.nativeElement.open = false; }
     this.actionDialogAction.set(action);
     this.actionDialogStation.set(station);
     this.actionDialogInput.set(action === 'ban' ? station : '');
@@ -236,6 +256,10 @@ export class ReflectorDashboardComponent implements OnInit {
   private executeEchoLinkAction(action: string, callsign: string = '', body?: Record<string, string | boolean>, dialog?: HTMLDialogElement): void {
     if (this.echolinkActionBusy()) { return; }
     this.echolinkActionBusy.set(true);
+    if (action === 'connect' || action === 'disconnect') {
+      this.pendingEchoLinkAction.set({ action, callsign: callsign.trim() });
+      if (action === 'connect') { dialog?.close(); }
+    }
     this.echolinkActionNotice.set('');
     this.echolinkActionError.set('');
     const profileId = this.selectedProfileId();
@@ -245,22 +269,34 @@ export class ReflectorDashboardComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: response => {
           this.echolinkActionBusy.set(false);
-          this.echolinkActionNotice.set(response.output || 'Acción EchoLink ejecutada.');
+          this.pendingEchoLinkAction.set(null);
+          if (action === 'connect' || action === 'disconnect') {
+            this.echolinkActionNotice.set(action === 'connect' && response.output?.startsWith('No se pudo conectar')
+              ? response.output : '');
+          } else {
+            this.echolinkActionNotice.set(response.output || 'Acción EchoLink ejecutada.');
+          }
           if (action === 'unban') {
             this.loadBannedStations();
           } else if (action === 'retry-cancel') {
             this.loadPendingRetries();
           } else {
-            dialog?.close();
+            if (action !== 'connect') { dialog?.close(); }
           }
           this.reflectorService.refresh();
         },
         error: error => {
           this.echolinkActionBusy.set(false);
+          this.pendingEchoLinkAction.set(null);
           if (this.handleExpiredAdmin(error)) { return; }
           this.echolinkActionError.set(this.actionErrorMessage(error, 'No se pudo ejecutar la acción EchoLink.'));
         }
       });
+  }
+
+  pendingStationAction(callsign: string): 'connect' | 'disconnect' | null {
+    const pending = this.pendingEchoLinkAction();
+    return pending && pending.callsign.toUpperCase() === callsign.trim().toUpperCase() ? pending.action : null;
   }
 
   unbanStation(callsign: string): void {

@@ -225,7 +225,7 @@
   display: grid;
   gap: .25rem;
 
-  .btn-dark { width: 100%; justify-content: flex-start; }
+  .btn-dark { box-sizing: border-box; width: 100%; justify-content: flex-start; }
 }
 
 .admin-login-dialog {
@@ -387,6 +387,12 @@ table:not(.legend-table) {
   tbody tr.row-tx {
     background: rgba(239, 68, 68, 0.12);
   }
+
+  tbody tr.echolink-connecting,
+  tbody tr.echolink-connecting:hover { background: #14532d; }
+
+  tbody tr.echolink-disconnecting,
+  tbody tr.echolink-disconnecting:hover { background: #7f1d1d; }
 
   .callsign {
     font-weight: 700;

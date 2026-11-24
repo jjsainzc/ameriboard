@@ -8,7 +8,7 @@
   </select>
   <button type="button" class="btn-dark" data-icon="↻" (click)="refresh()">Refrescar datos</button>
   @if (echolinkAdmin()) {
-    <details class="admin-menu">
+    <details #dropdownMenu class="admin-menu">
       <summary class="btn-dark" data-icon="⚙">Administración</summary>
       <div class="dropdown-panel">
         <a routerLink="/admin" class="btn-dark" data-icon="🗂">Administrar sitios</a>
@@ -40,7 +40,7 @@
         <input id="dashboard-admin-password" [type]="adminPasswordVisible() ? 'text' : 'password'"
           formControlName="password" [attr.autocomplete]="adminSetupRequired() ? 'new-password' : 'current-password'" required />
         <button type="button" class="password-toggle" [attr.aria-label]="adminPasswordVisible() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
-          [attr.aria-pressed]="adminPasswordVisible()" (click)="adminPasswordVisible.set(!adminPasswordVisible())">
+          [attr.aria-pressed]="adminPasswordVisible()" (click)="toggleAdminPasswordVisibility()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
             <circle cx="12" cy="12" r="3" />
@@ -48,10 +48,9 @@
           </svg>
         </button>
       </div>
-      @if (adminSetupRequired()) {
+      @if (adminSetupRequired() && !adminPasswordVisible()) {
         <label for="dashboard-admin-confirm">Confirmar contraseña
-          <input id="dashboard-admin-confirm" [type]="adminPasswordVisible() ? 'text' : 'password'"
-            formControlName="confirm" autocomplete="new-password" required />
+          <input id="dashboard-admin-confirm" type="password" formControlName="confirm" autocomplete="new-password" required />
         </label>
       }
       @if (adminError()) { <p class="echolink-action-error" role="alert">{{ adminError() }}</p> }
@@ -217,7 +216,7 @@
           <span class="count-pill">{{ d.echolinkConnected.length }}</span>
           <button type="button" class="btn-dark" data-icon="ⓘ" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda de atributos</button>
           @if (echolinkAdmin()) {
-            <details class="admin-menu">
+            <details #dropdownMenu class="admin-menu">
               <summary class="btn-dark" data-icon="☰">Opciones EchoLink</summary>
               <div class="dropdown-panel">
                 <button type="button" class="btn-dark" data-icon="🔗" (click)="openEchoLinkAction(actionDialog, 'connect')">Conectar</button>
@@ -246,11 +245,23 @@
             </tr>
           </thead>
           <tbody>
+            @if (pendingEchoLinkAction(); as pending) {
+              @if (pending.action === 'connect' && !pendingEchoLinkStationVisible()) {
+                <tr class="echolink-connecting" aria-busy="true">
+                  <td data-label="#" class="mono">—</td>
+                  <td data-label="Usuario" class="callsign">{{ pending.callsign }}</td>
+                  <td data-label="Atributo" class="mono">Conectando...</td>
+                  @if (echolinkAdmin()) { <td data-label="Acciones"></td> }
+                </tr>
+              }
+            }
             @for (station of echolinkConnectedPages.rows(); track station.number + station.user) {
-              <tr>
+              <tr [class.echolink-connecting]="pendingStationAction(station.user) === 'connect'"
+                [class.echolink-disconnecting]="pendingStationAction(station.user) === 'disconnect'"
+                [attr.aria-busy]="pendingStationAction(station.user) ? 'true' : null">
                 <td data-label="#" class="mono">{{ station.number }}</td>
                 <td data-label="Usuario" class="callsign">{{ station.user }}</td>
-                <td data-label="Atributo" class="mono">{{ station.attribute || '—' }}</td>
+                <td data-label="Atributo" class="mono">{{ pendingStationAction(station.user) === 'connect' ? 'Conectando...' : pendingStationAction(station.user) === 'disconnect' ? 'Desconectando...' : station.attribute || '—' }}</td>
                 @if (echolinkAdmin()) {
                   <td data-label="Acciones" class="echolink-row-actions">
                     <button type="button" class="icon-action"
@@ -272,9 +283,11 @@
                 }
               </tr>
             } @empty {
+              @if (pendingEchoLinkAction()?.action !== 'connect') {
               <tr>
                 <td [attr.colspan]="echolinkAdmin() ? 4 : 3" class="empty-msg">{{ echolinkConnectedPages.search() ? 'Sin resultados para la búsqueda' : 'No hay nodos EchoLink conectados' }}</td>
               </tr>
+              }
             }
           </tbody>
         </table>
