@@ -394,6 +394,9 @@ table:not(.legend-table) {
   tbody tr.echolink-disconnecting,
   tbody tr.echolink-disconnecting:hover { background: #7f1d1d; }
 
+  tbody tr.echolink-inactive-conference,
+  tbody tr.echolink-inactive-conference:hover { background: #7f1d1d; }
+
   .callsign {
     font-weight: 700;
     color: #38bdf8;

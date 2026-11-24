@@ -404,7 +404,7 @@ describe('ReflectorDashboardComponent', () => {
         echolinkAvailable: true,
         echolinkConnectedList: [
           { number: '1', user: 'TEST1', attribute: '' },
-          { number: '2', user: 'TEST2', attribute: 'm' }
+          { number: '2', user: 'TEST2', attribute: 'IMKx' }
         ]
       };
       http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
@@ -413,6 +413,9 @@ describe('ReflectorDashboardComponent', () => {
       const panel = root.querySelector('[aria-labelledby="echolink-title"]')!;
       expect(panel.querySelector('[aria-label="Mutear estación"]')?.classList.contains('mute-inactive')).toBe(true);
       expect(panel.querySelector('[aria-label="Desmutear estación"]')?.classList.contains('mute-active')).toBe(true);
+      const inactiveStation = Array.from(panel.querySelectorAll('tbody tr'))
+        .find(row => row.textContent?.includes('TEST2'));
+      expect(inactiveStation?.classList.contains('echolink-inactive-conference')).toBe(true);
       expect(panel.querySelectorAll('[aria-label="Banear estación"]')).toHaveLength(2);
       const dialog = root.querySelector('#echolink-action-title')!.closest('dialog') as HTMLDialogElement;
       dialog.showModal = vi.fn();
