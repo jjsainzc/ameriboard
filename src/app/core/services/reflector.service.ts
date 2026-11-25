@@ -1,15 +1,29 @@
 import { Injectable, inject, signal, DestroyRef } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
 import { BehaviorSubject, Subject, Observable, interval, merge, switchMap, startWith, catchError, of, tap, map, shareReplay } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity, DVSwitchActivity, DVSwitchBridge, EchoLinkStation, EchoLinkLastHeard } from '../models/reflector.model';
 
 export const DEFAULT_NXDN_TITLE = 'Estaciones o gateways conectados NXDN';
+export interface MonitoringOptions {
+  ysf: boolean;
+  nxdn: boolean;
+  echolink: boolean;
+  dvSwitch: boolean;
+}
+
+export const DEFAULT_MONITORING: MonitoringOptions = { ysf: true, nxdn: true, echolink: true, dvSwitch: true };
 
 export function normalizeNXDNTitle(title: string | null | undefined): string {
   const value = title?.trim();
   return !value || value === 'Últimos escuchados NXDN' ? DEFAULT_NXDN_TITLE : value;
+}
+
+function stationType(type: string, ip: string): string {
+  const address = ip.trim().toLowerCase();
+  return type?.trim().toLowerCase() === 'puente' || address === 'localhost' || address.startsWith('127.') ||
+    address === '::1' || address.startsWith('[::1]:') ? 'Puente' : 'Estación';
 }
 
 /** Forma devuelta por DashboardStatusResponse. */
@@ -77,6 +91,7 @@ export interface SiteProfile {
   name: string;
   visible: boolean;
   url?: string;
+  monitoring?: MonitoringOptions | null;
   header?: {
     title: string;
     subtitle: string;
@@ -127,9 +142,10 @@ export class ReflectorService {
         this.error.set(null);
         this.loading.set(false);
       }),
-      catchError(() => {
+      catchError((error: unknown) => {
         this.data.set(null);
-        this.error.set('Sin conexión con el servidor de telemetría');
+        this.error.set(error instanceof HttpErrorResponse && typeof error.error?.message === 'string'
+          ? error.error.message : 'Sin conexión con el servidor de telemetría');
         this.loading.set(false);
         return of(null);
       })
@@ -170,7 +186,7 @@ export class ReflectorService {
     const ysfConnected: YsfStation[] = (raw.ysfConnectedList ?? []).map((item) => ({
       callsign: item.callsign,
       ip: item.ip,
-      gateway: item.type || (item.ip === '127.0.0.1' || item.ip === 'localhost' || item.ip.startsWith('127.') ? 'Puente' : 'Estación o gateway'),
+      gateway: stationType(item.type, item.ip),
       since: item.since
     }));
 
@@ -234,7 +250,7 @@ export class ReflectorService {
         connected: (raw.pysfReflector?.connected ?? []).map(station => ({
           callsign: station.callsign,
           ip: station.ip,
-          gateway: station.type || (station.ip === '127.0.0.1' || station.ip === 'localhost' || station.ip.startsWith('127.') ? 'Puente' : 'Estación o gateway'),
+          gateway: stationType(station.type, station.ip),
           since: station.since
         })),
         lastHeard: this.uniqueLastHeard(raw.pysfReflector?.lastHeard ?? []).map(tx => ({
@@ -251,7 +267,7 @@ export class ReflectorService {
         tg: raw.nxdnReflector?.tg?.trim() || '—',
         port: raw.nxdnReflector?.port?.trim() || '—',
         connected: (raw.nxdnReflector?.connected ?? []).map(station => ({
-          callsign: station.callsign, ip: station.ip, gateway: station.type, since: station.since
+          callsign: station.callsign, ip: station.ip, gateway: stationType(station.type, station.ip), since: station.since
         })),
         lastHeard: this.uniqueLastHeard(raw.nxdnReflector?.lastHeard ?? []).map(tx => ({
           time: tx.ago, callsign: tx.callsign, target: tx.target || '—',

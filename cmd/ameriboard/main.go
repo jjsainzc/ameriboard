@@ -99,6 +99,7 @@ func run() error {
 		EchoLinkCommand:     cfg.EchoLinkCommand,
 		EchoLinkHistoryFile: filepath.Join(*stateDir, "echolink-history.json"),
 		BridgeConfigDir:     "/opt",
+		Monitoring:          mainSettings.Monitoring,
 	})
 	sites := profiles.NewHandler(store)
 	sites.SetEchoLinkActionExecutor(func(ctx context.Context, action profiles.EchoLinkAction) (string, error) {
@@ -108,7 +109,7 @@ func run() error {
 		})
 	})
 	sites.SetMainSettings(mainSettings, func(settings profiles.MainSettings) {
-		reflector.SetDashboardSettings(settings.Title, settings.Subtitle, settings.DVSwitchTitle, settings.NXDNTitle)
+		reflector.SetDashboardSettings(settings.Title, settings.Subtitle, settings.DVSwitchTitle, settings.NXDNTitle, settings.Monitoring)
 	})
 	defer reflector.Close()
 	e := newServer(basePath, frontend, reflector, sites)

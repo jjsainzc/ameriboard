@@ -94,6 +94,9 @@ Go. La verificación de salud está en `/healthz`; la API de telemetría está e
 `<BASE_PATH>/api/reflector-status`.
 El reporte de conectados YSF incluye las direcciones IP registradas por el
 reflector; serán visibles para quienes puedan acceder al dashboard.
+En las tablas de conectados YSF y NXDN, «Tipo» se infiere de la dirección:
+las conexiones de loopback se muestran como «Puente» y las demás como
+«Estación»; esto no confirma la configuración real del equipo.
 Los directorios de logs deben existir y ser legibles para el usuario del
 servidor. La tabla DVSwitch toma la modalidad del registro de cada transmisión
 y solo presenta las modalidades que aparecen en el log configurado en
@@ -198,6 +201,12 @@ Los cambios se aplican sin reiniciar el servicio y se guardan en el
 directorio de estado de Ameriboard; prevalecen sobre los valores del YAML o del
 entorno, sin modificar esos archivos.
 
+En **Modalidades a monitorear** se pueden activar o desactivar YSF (incluido
+pYSF), NXDN, EchoLink y DVSwitch. Las modalidades desactivadas no se consultan
+ni se muestran. Las instalaciones y perfiles existentes mantienen todas
+activadas por defecto. El registro compartido de MMDVM se sigue leyendo para
+obtener tráfico YSF cuando YSF está activo, aunque DVSwitch esté desactivado.
+
 Para añadir un sitio remoto, introduce su URL HTTP o HTTPS y su contraseña de
 administrador. Si la URL solo contiene el host, se añade automáticamente
 `/ameriboard`; también puedes indicar una ruta personalizada. Obtén esa contraseña del responsable del sitio por un canal
@@ -222,6 +231,12 @@ campos vacíos conservan los valores del sitio remoto; el estado del puente y la
 última lectura siempre proceden de ese sitio. Al personalizar el subtítulo se
 añade la última lectura del sitio. Estos cambios no modifican la configuración
 remota.
+Cada perfil también permite seleccionar las modalidades que se consultan en
+ese sitio. La selección solo puede restringir las modalidades activadas en el
+servidor remoto y no modifica su configuración ni detiene las consultas de
+otros clientes. Para desactivar modalidades en un perfil, el sitio remoto debe
+tener una versión de Ameriboard compatible con esta selección; de lo contrario,
+se informa del error sin consultar su telemetría.
 Desde el selector del dashboard se puede volver al sitio local en cualquier
 momento. Un sitio remoto inaccesible muestra un error solo para ese sitio; no
 impide consultar los demás. Cuando una fuente de telemetría remota falla, el

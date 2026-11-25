@@ -18,6 +18,8 @@ import (
 	"sync"
 	"time"
 
+	"ameriboard/internal/monitoring"
+
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/time/rate"
@@ -96,6 +98,9 @@ func (h *Handler) updateAdminSettings(c echo.Context) error {
 	if apply == nil {
 		h.mu.Unlock()
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "La configuración principal no está disponible")
+	}
+	if settings.Monitoring == nil {
+		settings.Monitoring = h.mainSettings.Monitoring
 	}
 	saved, err := h.store.SaveMainSettings(settings)
 	if errors.Is(err, errInvalidMainSettings) {
@@ -183,6 +188,10 @@ func (h *Handler) Register(group *echo.Group, basePath string, status echo.Handl
 	group.POST("/api/admin/profiles", h.createProfile)
 	group.PUT("/api/admin/profiles/:id", h.updateProfile)
 	group.DELETE("/api/admin/profiles/:id", h.deleteProfile)
+	group.GET("/api/remote/capabilities", func(c echo.Context) error {
+		c.Response().Header().Set("Cache-Control", "no-store")
+		return c.JSON(http.StatusOK, map[string]bool{"selectiveMonitoring": true})
+	})
 	group.GET("/api/remote/status", func(c echo.Context) error {
 		if _, password, ok := c.Request().BasicAuth(); ok {
 			hash, err := h.store.credential("admin")
@@ -466,11 +475,12 @@ func (h *Handler) profileEchoLinkAction(c echo.Context) error {
 }
 
 type publicProfile struct {
-	ID      string         `json:"id"`
-	Name    string         `json:"name"`
-	URL     string         `json:"url,omitempty"`
-	Visible bool           `json:"visible"`
-	Header  *ProfileHeader `json:"header,omitempty"`
+	ID         string              `json:"id"`
+	Name       string              `json:"name"`
+	URL        string              `json:"url,omitempty"`
+	Visible    bool                `json:"visible"`
+	Header     *ProfileHeader      `json:"header,omitempty"`
+	Monitoring *monitoring.Options `json:"monitoring,omitempty"`
 }
 
 func (h *Handler) profiles(c echo.Context, admin bool) error {
@@ -485,6 +495,7 @@ func (h *Handler) profiles(c echo.Context, admin bool) error {
 			if admin {
 				item.URL = p.URL
 				item.Header = p.Header
+				item.Monitoring = p.Monitoring
 			}
 			result = append(result, item)
 		}
@@ -533,7 +544,7 @@ func (h *Handler) modify(c echo.Context, id string) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, "No se pudo guardar el perfil").SetInternal(err)
 	}
-	return c.JSON(http.StatusOK, publicProfile{ID: p.ID, Name: p.Name, URL: p.URL, Visible: p.Visible, Header: p.Header})
+	return c.JSON(http.StatusOK, publicProfile{ID: p.ID, Name: p.Name, URL: p.URL, Visible: p.Visible, Header: p.Header, Monitoring: p.Monitoring})
 }
 
 func (h *Handler) createProfile(c echo.Context) error { return h.modify(c, "") }
@@ -561,9 +572,36 @@ func (h *Handler) profileStatus(c echo.Context) error {
 		if p.ID != c.Param("id") || (!p.Visible && !h.authenticated(c)) {
 			continue
 		}
+		selection := monitoring.Resolve(p.Monitoring)
+		restricted := selection != monitoring.All()
+		if restricted {
+			capabilityRequest, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, p.URL+"/api/remote/capabilities", nil)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadGateway, "Dirección del sitio inválida").SetInternal(err)
+			}
+			capabilityResponse, err := h.client.Do(capabilityRequest)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadGateway, "No se puede conectar al sitio remoto").SetInternal(err)
+			}
+			var capabilities struct {
+				SelectiveMonitoring bool `json:"selectiveMonitoring"`
+			}
+			decodeErr := json.NewDecoder(io.LimitReader(capabilityResponse.Body, 4096)).Decode(&capabilities)
+			capabilityResponse.Body.Close()
+			if capabilityResponse.StatusCode != http.StatusOK || decodeErr != nil || !capabilities.SelectiveMonitoring {
+				return echo.NewHTTPError(http.StatusBadGateway, "El sitio remoto debe actualizarse para seleccionar modalidades")
+			}
+		}
 		req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, p.URL+"/api/remote/status", nil)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusBadGateway, "Dirección del sitio inválida").SetInternal(err)
+		}
+		if restricted {
+			encoded, err := json.Marshal(selection)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "Selección de modalidades inválida").SetInternal(err)
+			}
+			req.Header.Set("X-Ameriboard-Monitoring", string(encoded))
 		}
 		if p.Password != "" {
 			req.SetBasicAuth("", p.Password)
@@ -577,6 +615,9 @@ func (h *Handler) profileStatus(c echo.Context) error {
 		defer response.Body.Close()
 		if response.StatusCode != http.StatusOK {
 			return echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("El sitio remoto respondió con código %d", response.StatusCode))
+		}
+		if restricted && response.Header.Get("X-Ameriboard-Selective-Monitoring") != "1" {
+			return echo.NewHTTPError(http.StatusBadGateway, "El sitio remoto no confirmó la selección de modalidades")
 		}
 		data, err := io.ReadAll(io.LimitReader(response.Body, 2*1024*1024+1))
 		if err != nil || len(data) > 2*1024*1024 || !json.Valid(data) {

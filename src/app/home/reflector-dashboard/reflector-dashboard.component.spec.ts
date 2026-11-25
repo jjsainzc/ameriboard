@@ -113,7 +113,7 @@ describe('ReflectorDashboardComponent', () => {
     const tables = fixture.nativeElement.querySelectorAll('table') as NodeListOf<HTMLTableElement>;
     expect(tables).toHaveLength(8);
     expect(Array.from(tables[0].querySelectorAll('thead th'), th => th.textContent?.trim()))
-      .toEqual(['Indicativo', 'IP', 'Gateway', 'Última lectura']);
+      .toEqual(['Indicativo', 'IP', 'Tipo', 'Última lectura']);
     expect(Array.from(tables[1].querySelectorAll('thead th'), th => th.textContent?.trim()))
       .toEqual(['Hace', 'Indicativo', 'Destino', 'Gateway', 'Duración', 'Pérdida']);
     const nxdnSection = fixture.nativeElement.querySelector('.nxdn-section') as HTMLDetailsElement;
@@ -203,6 +203,49 @@ describe('ReflectorDashboardComponent', () => {
     fixture.detectChanges();
     expect(ysf.open).toBe(false);
     expect(pysf.open).toBe(true);
+    fixture.destroy();
+    http.verify();
+  });
+
+  it('sums the connections of available YSF reflectors in the connected card', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+    const station = { callsign: 'TEST1', ip: '192.0.2.1', type: 'Gateway', since: '10:00' };
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+      header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 5, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
+      ysfAvailable: true,
+      ysfConnectedList: Array.from({ length: 5 }, () => station),
+      pysfReflector: { available: true, connected: Array.from({ length: 4 }, () => station) }
+    });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const connectedCount = () => root.querySelector('.border-cyan .kpi-value')?.textContent?.trim();
+    expect(connectedCount()).toBe('9');
+
+    const service = TestBed.inject(ReflectorService);
+    const data = service.data()!;
+    service.data.set({ ...data, pysfReflector: { ...data.pysfReflector, available: false } });
+    fixture.detectChanges();
+    expect(connectedCount()).toBe('5');
+
+    service.data.set({ ...data, ysfAvailable: false, ysfTrafficAvailable: false, dmrAvailable: false });
+    fixture.detectChanges();
+    expect(connectedCount()).toBe('4');
+
+    service.data.set({
+      ...data, ysfAvailable: false, ysfTrafficAvailable: false, dmrAvailable: false,
+      pysfReflector: { ...data.pysfReflector, available: false }
+    });
+    fixture.detectChanges();
+    expect(root.querySelector('.border-cyan')).toBeNull();
     fixture.destroy();
     http.verify();
   });

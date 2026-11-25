@@ -93,12 +93,12 @@
     </header>
 
     <!-- 4 Tarjetas KPI Superiores -->
-    @if (d.ysfAvailable || d.ysfTrafficAvailable || d.dmrAvailable) {
+    @if (d.ysfAvailable || d.pysfReflector.available || d.ysfTrafficAvailable || d.dmrAvailable) {
     <section class="kpi-grid">
-      @if (d.ysfAvailable) {
+      @if (d.ysfAvailable || d.pysfReflector.available) {
       <div class="kpi-card border-cyan">
         <span class="kpi-label">CONECTADOS YSF AHORA</span>
-        <span class="kpi-value">{{ d.stats.ysfConnectedCount }}</span>
+        <span class="kpi-value">{{ (d.ysfAvailable ? d.stats.ysfConnectedCount : 0) + (d.pysfReflector.available ? d.pysfReflector.connected.length : 0) }}</span>
       </div>
       }
       @if (d.ysfTrafficAvailable) {
@@ -148,7 +148,7 @@
               <tr>
                 <th scope="col">Indicativo</th>
                 <th scope="col">IP</th>
-                <th scope="col">Gateway</th>
+                <th scope="col">Tipo</th>
                 <th scope="col">Última lectura</th>
               </tr>
             </thead>
@@ -157,7 +157,7 @@
                 <tr>
                   <td data-label="Indicativo" class="callsign">{{ st.callsign }}</td>
                   <td data-label="IP" class="mono">{{ st.ip }}</td>
-                  <td data-label="Gateway">{{ st.gateway }}</td>
+                  <td data-label="Tipo">{{ st.gateway }}</td>
                   <td data-label="Última lectura" class="mono">{{ st.since }}</td>
                 </tr>
               } @empty {
@@ -236,13 +236,13 @@
           <app-table-pagination placement="top" label="estaciones pYSF conectadas" [pagination]="pysfConnectedPages" />
           <div class="table-responsive">
             <table>
-              <thead><tr><th scope="col">Indicativo</th><th scope="col">IP</th><th scope="col">Gateway</th><th scope="col">Última lectura</th></tr></thead>
+              <thead><tr><th scope="col">Indicativo</th><th scope="col">IP</th><th scope="col">Tipo</th><th scope="col">Última lectura</th></tr></thead>
               <tbody>
                 @for (station of pysfConnectedPages.rows(); track $index) {
                   <tr>
                     <td data-label="Indicativo" class="callsign">{{ station.callsign }}</td>
                     <td data-label="IP" class="mono">{{ station.ip }}</td>
-                    <td data-label="Gateway">{{ station.gateway }}</td>
+                    <td data-label="Tipo">{{ station.gateway }}</td>
                     <td data-label="Última lectura" class="mono">{{ station.since }}</td>
                   </tr>
                 } @empty {
@@ -299,13 +299,13 @@
           <app-table-pagination placement="top" label="estaciones NXDN conectadas" [pagination]="nxdnConnectedPages" />
           <div class="table-responsive">
             <table>
-              <thead><tr><th scope="col">Indicativo</th><th scope="col">IP:puerto</th><th scope="col">Gateway</th><th scope="col">Última lectura</th></tr></thead>
+              <thead><tr><th scope="col">Indicativo</th><th scope="col">IP:puerto</th><th scope="col">Tipo</th><th scope="col">Última lectura</th></tr></thead>
               <tbody>
                 @for (station of nxdnConnectedPages.rows(); track $index) {
                   <tr>
                     <td data-label="Indicativo" class="callsign">{{ station.callsign }}</td>
                     <td data-label="IP:puerto" class="mono">{{ station.ip }}</td>
-                    <td data-label="Gateway">{{ station.gateway }}</td>
+                    <td data-label="Tipo">{{ station.gateway }}</td>
                     <td data-label="Última lectura" class="mono">{{ station.since }}</td>
                   </tr>
                 } @empty {

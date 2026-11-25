@@ -35,7 +35,22 @@ describe('ReflectorService', () => {
       dvSwitchTitle: 'Actividad personalizada',
       dvSwitchBridges: [{ modeA: 'DMR', modeB: 'YSF' }],
       stats: { ysfConnectedNow: 1, ysfTx24h: 2, dmrTx24h: 3, dvSwitchTx24h: 7, stations24h: 4 },
-      ysfConnectedList: [{ callsign: 'TEST1', ip: '192.0.2.1', type: 'Gateway', since: '10:00' }],
+      ysfConnectedList: [
+        { callsign: 'TEST1', ip: '192.0.2.1', type: 'Gateway', since: '10:00' },
+        { callsign: 'LOCAL', ip: '127.0.0.1', type: 'Puente', since: '10:00' }
+      ],
+      pysfReflector: {
+        available: true, connected: [
+          { callsign: 'PYSF1', ip: '192.0.2.2', type: 'Estación o gateway', since: '10:00' },
+          { callsign: 'PYSF2', ip: '127.0.0.2', type: '', since: '10:00' }
+        ]
+      },
+      nxdnReflector: {
+        available: true, connected: [
+          { callsign: 'NXDN1', ip: '192.0.2.1:1234', type: 'Estación o gateway', since: '10:00' },
+          { callsign: 'NXDN2', ip: '127.0.0.1:1234', type: 'Puente', since: '10:00' }
+        ]
+      },
       ysfLastTx: [{ callsign: 'TEST1', duration: '5s', ago: 'hace 1m' }],
       dmrLastTx: [{ callsign: 'DMR1', duration: '10s', ago: 'hace 2m' }, { callsign: 'DMR1', duration: '8s', ago: 'hace 3m' }],
       dvSwitchLastTx: [{
@@ -53,10 +68,13 @@ describe('ReflectorService', () => {
       ysfConnectedCount: 1, ysfTx24h: 2, dmrTx24h: 3, dvSwitchTx24h: 7, stations24h: 4
     });
     expect(service.data()?.dvSwitchTitle).toBe('Actividad personalizada');
-    expect(service.data()?.nxdnReflector.available).toBe(false);
+    expect(service.data()?.nxdnReflector.available).toBe(true);
     expect(service.data()?.nxdnTitle).toBe('Estaciones o gateways conectados NXDN');
     expect(service.data()?.dvSwitchBridges).toEqual([{ modeA: 'DMR', modeB: 'YSF' }]);
-    expect(service.data()?.ysfConnected[0]).toEqual({ callsign: 'TEST1', ip: '192.0.2.1', gateway: 'Gateway', since: '10:00' });
+    expect(service.data()?.ysfConnected[0]).toEqual({ callsign: 'TEST1', ip: '192.0.2.1', gateway: 'Estación', since: '10:00' });
+    expect(service.data()?.ysfConnected[1].gateway).toBe('Puente');
+    expect(service.data()?.pysfReflector.connected.map(station => station.gateway)).toEqual(['Estación', 'Puente']);
+    expect(service.data()?.nxdnReflector.connected.map(station => station.gateway)).toEqual(['Estación', 'Puente']);
     expect(service.data()?.ysfLastHeard[0].loss).toBe('—');
     expect(service.data()?.dmrLastHeard).toEqual([
       { time: 'hace 2m', callsign: 'DMR1', dmrId: '—', talkgroup: '—', source: '—', duration: '10s' }

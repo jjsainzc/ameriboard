@@ -15,17 +15,20 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"ameriboard/internal/monitoring"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Profile struct {
-	ID       string         `json:"id"`
-	Name     string         `json:"name"`
-	URL      string         `json:"url"`
-	Token    string         `json:"token"`
-	Password string         `json:"password,omitempty"`
-	Visible  bool           `json:"visible"`
-	Header   *ProfileHeader `json:"header,omitempty"`
+	ID         string              `json:"id"`
+	Name       string              `json:"name"`
+	URL        string              `json:"url"`
+	Token      string              `json:"token"`
+	Password   string              `json:"password,omitempty"`
+	Visible    bool                `json:"visible"`
+	Header     *ProfileHeader      `json:"header,omitempty"`
+	Monitoring *monitoring.Options `json:"monitoring,omitempty"`
 }
 
 type ProfileHeader struct {
@@ -40,10 +43,11 @@ const DefaultDVSwitchTitle = "Actividad digital vía DVSwitch"
 const DefaultNXDNTitle = "Estaciones o gateways conectados NXDN"
 
 type MainSettings struct {
-	Title         string `json:"title"`
-	Subtitle      string `json:"subtitle"`
-	DVSwitchTitle string `json:"dvSwitchTitle"`
-	NXDNTitle     string `json:"nxdnTitle"`
+	Title         string              `json:"title"`
+	Subtitle      string              `json:"subtitle"`
+	DVSwitchTitle string              `json:"dvSwitchTitle"`
+	NXDNTitle     string              `json:"nxdnTitle"`
+	Monitoring    *monitoring.Options `json:"monitoring,omitempty"`
 }
 
 type Store struct {
@@ -298,6 +302,9 @@ func (s *Store) save(p Profile, id string) (Profile, error) {
 				}
 				if p.Header == nil {
 					p.Header = profiles[i].Header
+				}
+				if p.Monitoring == nil {
+					p.Monitoring = profiles[i].Monitoring
 				}
 				break
 			}

@@ -52,6 +52,13 @@
         <label for="main-nxdn-title">Título de conectados NXDN
           <input id="main-nxdn-title" formControlName="nxdnTitle" maxlength="200" required />
         </label>
+        <fieldset formGroupName="monitoring">
+          <legend>Modalidades a monitorear en este sitio</legend>
+          <label class="check"><input type="checkbox" formControlName="ysf" /> YSF</label>
+          <label class="check"><input type="checkbox" formControlName="nxdn" /> NXDN</label>
+          <label class="check"><input type="checkbox" formControlName="echolink" /> EchoLink</label>
+          <label class="check"><input type="checkbox" formControlName="dvSwitch" /> DVSwitch</label>
+        </fieldset>
         <div class="actions">
           <button type="submit" class="btn-dark btn-dark-primary" data-icon="💾" [disabled]="busy() || mainSettingsForm.invalid">Guardar configuración</button>
         </div>
@@ -100,6 +107,13 @@
         <input id="site-visible" type="checkbox" formControlName="visible" />
         Visible para visitantes
       </label>
+      <fieldset formGroupName="monitoring">
+        <legend>Modalidades a monitorear en este sitio</legend>
+        <label class="check"><input type="checkbox" formControlName="ysf" /> YSF</label>
+        <label class="check"><input type="checkbox" formControlName="nxdn" /> NXDN</label>
+        <label class="check"><input type="checkbox" formControlName="echolink" /> EchoLink</label>
+        <label class="check"><input type="checkbox" formControlName="dvSwitch" /> DVSwitch</label>
+      </fieldset>
       <fieldset>
         <legend>Cabecera personalizada</legend>
         <p>Deja un campo vacío para utilizar el valor enviado por el sitio remoto.</p>

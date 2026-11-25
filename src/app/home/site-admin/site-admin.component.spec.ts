@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { SiteAdminComponent } from './site-admin.component';
+import { DEFAULT_MONITORING } from '../../core/services/reflector.service';
 
 describe('SiteAdminComponent', () => {
   it('creates the first administrator and opens the administration page', async () => {
@@ -59,16 +60,19 @@ describe('SiteAdminComponent', () => {
       });
     fixture.detectChanges();
     component.mainSettingsForm.setValue({
-      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local'
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local',
+      monitoring: { ...DEFAULT_MONITORING, nxdn: false }
     });
     component.saveMainSettings();
     const settingsUpdate = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/settings'));
     expect(settingsUpdate.request.body).toEqual({
-      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local'
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local',
+      monitoring: { ...DEFAULT_MONITORING, nxdn: false }
     });
     expect(settingsUpdate.request.headers.get('X-Ameriboard-Request')).toBe('1');
     settingsUpdate.flush({
-      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local'
+      title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local',
+      monitoring: { ...DEFAULT_MONITORING, nxdn: false }
     });
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('Configuración principal guardada');
@@ -81,12 +85,14 @@ describe('SiteAdminComponent', () => {
     expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();
     component.siteForm.setValue({
       name: 'Sitio', url: 'https://example.org/ameriboard', password: 'a secure password', visible: false,
-      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto'
+      title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto',
+      monitoring: { ...DEFAULT_MONITORING, echolink: false, dvSwitch: false }
     });
     component.save();
     const create = http.expectOne(request => request.method === 'POST' && request.url.endsWith('/api/admin/profiles'));
     expect(create.request.body.visible).toBe(false);
     expect(create.request.body.password).toBe('a secure password');
+    expect(create.request.body.monitoring).toEqual({ ysf: true, nxdn: true, echolink: false, dvSwitch: false });
     expect(create.request.body.header).toEqual({
       title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto'
     });
@@ -94,6 +100,7 @@ describe('SiteAdminComponent', () => {
     create.flush({ id: '1', name: 'Sitio', url: 'https://example.org/ameriboard', visible: false });
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/profiles'))
       .flush([{ id: '1', name: 'Sitio', url: 'https://example.org/ameriboard', visible: false,
+        monitoring: { ysf: true, nxdn: true, echolink: false, dvSwitch: false },
         header: { title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto' } }]);
     http.expectOne(request => request.method === 'GET' && request.url.endsWith('/api/admin/settings'))
       .flush({ title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local' });
@@ -109,12 +116,14 @@ describe('SiteAdminComponent', () => {
     expect(component.siteForm.value.title).toBe('Mi reflector');
     expect(component.siteForm.value.dvSwitchTitle).toBe('Actividad remota');
     expect(component.siteForm.value.nxdnTitle).toBe('NXDN remoto');
+    expect(component.siteForm.value.monitoring).toEqual({ ysf: true, nxdn: true, echolink: false, dvSwitch: false });
     component.save();
     const update = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/profiles/1'));
     expect(update.request.body.password).toBe('');
     expect(update.request.body.header.badge).toBe('Zona');
     expect(update.request.body.header.dvSwitchTitle).toBe('Actividad remota');
     expect(update.request.body.header.nxdnTitle).toBe('NXDN remoto');
+    expect(update.request.body.monitoring).toEqual({ ysf: true, nxdn: true, echolink: false, dvSwitch: false });
     update.flush('error', { status: 500, statusText: 'Error' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#site-name')).not.toBeNull();

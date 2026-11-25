@@ -11,8 +11,78 @@ import (
 	"testing"
 	"time"
 
+	"ameriboard/internal/monitoring"
+
 	"github.com/labstack/echo/v4"
 )
+
+func TestMonitoringSelectionSkipsDisabledSources(t *testing.T) {
+	dir := t.TempDir()
+	now := time.Now().UTC()
+	stamp := now.Add(-time.Second).Format("2006-01-02 15:04:05.000")
+	ysfLog := fmt.Sprintf("M: %s Currently linked repeaters/gateways:\nM: %s TEST1 : 127.0.0.1:1234 2/60\n", stamp, stamp)
+	dvLog := fmt.Sprintf("I: %s DMR, Begin TX: src=100 rpt=0 dst=42 slot=2 cc=0 metadata=TEST1\n", stamp)
+	for name, content := range map[string]string{
+		"YSFReflector-" + now.Format("2006-01-02") + ".log": ysfLog,
+		"MMDVM_Bridge-" + now.Format("2006-01-02") + ".log": dvLog,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	marker := filepath.Join(dir, "echolink-called")
+	command := filepath.Join(dir, "tlbcmd")
+	if err := os.WriteFile(command, []byte(fmt.Sprintf("#!/bin/sh\necho called >> %q\n", marker)), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	disabled := monitoring.Options{}
+	service := NewReflectorService(ReflectorConfig{
+		YSFLogDir: dir, DMRLogDir: dir, EchoLinkCommand: command, BridgeConfigDir: dir, Monitoring: &disabled,
+	})
+	e := echo.New()
+	request := func(header string) DashboardStatusResponse {
+		t.Helper()
+		req := httptest.NewRequest("GET", "/", nil)
+		if header != "" {
+			req.Header.Set("X-Ameriboard-Monitoring", header)
+		}
+		rec := httptest.NewRecorder()
+		if err := service.GetStatus(e.NewContext(req, rec)); err != nil {
+			t.Fatal(err)
+		}
+		var response DashboardStatusResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		return response
+	}
+
+	got := request("")
+	if got.YSFAvailable || got.YSFTrafficAvailable || got.DMRAvailable || got.EchoLinkAvailable ||
+		got.NXDNReflector.Available || got.PYSFReflector.Available || len(got.Warnings) != 0 {
+		t.Fatalf("disabled sources were collected: %+v", got)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("disabled EchoLink command was executed: %v", err)
+	}
+
+	service.SetDashboardSettings("", "", "", "", &monitoring.Options{YSF: true, DVSwitch: true, EchoLink: true})
+	got = request(`{"ysf":true,"nxdn":false,"echolink":false,"dvSwitch":false}`)
+	if !got.YSFAvailable || got.Stats.YSFConnectedNow != 1 || got.DMRAvailable || len(got.DVSwitchLastTX) != 0 || got.EchoLinkAvailable {
+		t.Fatalf("remote restriction not applied: %+v", got)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("remotely disabled EchoLink command was executed: %v", err)
+	}
+	got = request(`{"ysf":false,"nxdn":false,"echolink":true,"dvSwitch":true}`)
+	if got.YSFAvailable || got.YSFTrafficAvailable || len(got.YSFConnectedList) != 0 || !got.DMRAvailable ||
+		len(got.DVSwitchLastTX) != 1 || !got.EchoLinkAvailable {
+		t.Fatalf("enabled sources not collected independently: %+v", got)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("enabled EchoLink command was not executed: %v", err)
+	}
+}
 
 func TestYSFReflectorInfoFromIni(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "YSFReflector.ini")
@@ -165,7 +235,7 @@ func TestYSFGatewayType(t *testing.T) {
 			t.Fatalf("YSF gateway type for %q = %q, want Puente", ip, got)
 		}
 	}
-	if got := ysfGatewayType("192.0.2.1"); got != "Estación o gateway" {
+	if got := ysfGatewayType("192.0.2.1"); got != "Estación" {
 		t.Fatalf("remote YSF gateway type = %q", got)
 	}
 }

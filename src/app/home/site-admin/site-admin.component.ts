@@ -4,7 +4,15 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DEFAULT_NXDN_TITLE, normalizeNXDNTitle, SiteProfile } from '../../core/services/reflector.service';
+import { DEFAULT_MONITORING, DEFAULT_NXDN_TITLE, MonitoringOptions, normalizeNXDNTitle, SiteProfile } from '../../core/services/reflector.service';
+
+interface MainSettings {
+  title: string;
+  subtitle: string;
+  dvSwitchTitle: string;
+  nxdnTitle?: string;
+  monitoring?: MonitoringOptions | null;
+}
 
 @Component({
   selector: 'app-site-admin',
@@ -53,7 +61,8 @@ export class SiteAdminComponent {
     title: ['', [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
     subtitle: ['', Validators.maxLength(500)],
     dvSwitchTitle: ['Actividad digital vía DVSwitch', [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
-    nxdnTitle: [DEFAULT_NXDN_TITLE, [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]]
+    nxdnTitle: [DEFAULT_NXDN_TITLE, [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
+    monitoring: this.fb.group({ ...DEFAULT_MONITORING })
   });
   readonly setupForm = this.fb.group({
     password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(72)]],
@@ -68,7 +77,8 @@ export class SiteAdminComponent {
     subtitle: ['', Validators.maxLength(500)],
     badge: ['', Validators.maxLength(100)],
     dvSwitchTitle: ['', Validators.maxLength(200)],
-    nxdnTitle: ['', Validators.maxLength(200)]
+    nxdnTitle: ['', Validators.maxLength(200)],
+    monitoring: this.fb.group({ ...DEFAULT_MONITORING })
   });
 
   constructor() { this.load(); }
@@ -113,10 +123,10 @@ export class SiteAdminComponent {
   }
 
   private loadMainSettings(): void {
-    this.http.get<{ title: string; subtitle: string; dvSwitchTitle: string; nxdnTitle?: string }>(`${this.url}/settings`)
+    this.http.get<MainSettings>(`${this.url}/settings`)
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: settings => {
-          this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle) });
+          this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle), monitoring: settings.monitoring ?? DEFAULT_MONITORING });
           this.mainSettingsLoaded.set(true);
         },
         error: err => this.fail(err, 'No se pudo cargar la configuración principal.')
@@ -128,11 +138,11 @@ export class SiteAdminComponent {
     this.busy.set(true);
     this.error.set('');
     this.notice.set('');
-    this.http.put<{ title: string; subtitle: string; dvSwitchTitle: string; nxdnTitle?: string }>(
+    this.http.put<MainSettings>(
       `${this.url}/settings`, this.mainSettingsForm.getRawValue(), { headers: this.headers }
     ).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: settings => {
-        this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle) });
+        this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle), monitoring: settings.monitoring ?? DEFAULT_MONITORING });
         this.busy.set(false);
         this.notice.set('Configuración principal guardada.');
       },
@@ -167,7 +177,8 @@ export class SiteAdminComponent {
       name: site.name, url: site.url ?? '', password: '', visible: site.visible,
       title: site.header?.title ?? '', subtitle: site.header?.subtitle ?? '', badge: site.header?.badge ?? '',
       dvSwitchTitle: site.header?.dvSwitchTitle ?? '',
-      nxdnTitle: site.header?.nxdnTitle ? normalizeNXDNTitle(site.header.nxdnTitle) : ''
+      nxdnTitle: site.header?.nxdnTitle ? normalizeNXDNTitle(site.header.nxdnTitle) : '',
+      monitoring: site.monitoring ?? DEFAULT_MONITORING
     });
     this.error.set('');
   }
@@ -175,7 +186,7 @@ export class SiteAdminComponent {
   cancel(): void {
     this.siteFormOpen.set(false);
     this.editing.set(null);
-    this.siteForm.reset({ name: '', url: '', password: '', visible: false, title: '', subtitle: '', badge: '', dvSwitchTitle: '', nxdnTitle: '' });
+    this.siteForm.reset({ name: '', url: '', password: '', visible: false, title: '', subtitle: '', badge: '', dvSwitchTitle: '', nxdnTitle: '', monitoring: DEFAULT_MONITORING });
     this.sitePasswordVisible.set(false);
     this.error.set('');
   }
@@ -191,8 +202,8 @@ export class SiteAdminComponent {
     this.busy.set(true);
     this.error.set('');
     const id = this.editing();
-    const { name, url, password, visible, title, subtitle, badge, dvSwitchTitle, nxdnTitle } = this.siteForm.getRawValue();
-    const profile = { name, url, password, visible, header: { title, subtitle, badge, dvSwitchTitle, nxdnTitle } };
+    const { name, url, password, visible, title, subtitle, badge, dvSwitchTitle, nxdnTitle, monitoring } = this.siteForm.getRawValue();
+    const profile = { name, url, password, visible, monitoring, header: { title, subtitle, badge, dvSwitchTitle, nxdnTitle } };
     const request = id
       ? this.http.put(`${this.url}/profiles/${encodeURIComponent(id)}`, profile, { headers: this.headers })
       : this.http.post(`${this.url}/profiles`, profile, { headers: this.headers });
@@ -221,7 +232,7 @@ export class SiteAdminComponent {
         this.authenticated.set(false);
         this.sites.set([]);
         this.mainSettingsLoaded.set(false);
-        this.mainSettingsForm.reset({ title: '', subtitle: '', dvSwitchTitle: 'Actividad digital vía DVSwitch', nxdnTitle: DEFAULT_NXDN_TITLE });
+        this.mainSettingsForm.reset({ title: '', subtitle: '', dvSwitchTitle: 'Actividad digital vía DVSwitch', nxdnTitle: DEFAULT_NXDN_TITLE, monitoring: DEFAULT_MONITORING });
         this.cancel();
       },
       error: err => this.fail(err, 'No se pudo cerrar la sesión.')

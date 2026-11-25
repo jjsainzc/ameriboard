@@ -8,8 +8,23 @@ import (
 	"strings"
 	"testing"
 
+	"ameriboard/internal/monitoring"
+
 	"github.com/labstack/echo/v4"
 )
+
+func TestMainMonitoringSettingsPersist(t *testing.T) {
+	store := NewStore(t.TempDir())
+	selection := monitoring.Options{YSF: true, NXDN: false, EchoLink: false, DVSwitch: true}
+	saved, err := store.SaveMainSettings(MainSettings{Title: "Local", Monitoring: &selection})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := NewStore(store.dir).LoadMainSettings(MainSettings{})
+	if err != nil || reloaded.Monitoring == nil || *reloaded.Monitoring != selection || *saved.Monitoring != selection {
+		t.Fatalf("monitoring settings not preserved: %+v, %v", reloaded, err)
+	}
+}
 
 func TestMainSettingsRequireAdminAndPersistChanges(t *testing.T) {
 	store := NewStore(t.TempDir())
@@ -66,6 +81,20 @@ func TestMainSettingsRequireAdminAndPersistChanges(t *testing.T) {
 	reloaded, err := NewStore(store.dir).LoadMainSettings(initial)
 	if err != nil || reloaded != want {
 		t.Fatalf("persisted settings = %+v, %v", reloaded, err)
+	}
+	if got := request("PUT", "/api/admin/settings", `{"title":"Local","monitoring":{"ysf":true,"nxdn":false,"echolink":false,"dvSwitch":true}}`, cookie, "https://local.example"); got.Code != http.StatusOK {
+		t.Fatalf("update monitoring: %d %s", got.Code, got.Body)
+	}
+	selection := monitoring.Options{YSF: true, DVSwitch: true}
+	if applied.Monitoring == nil || *applied.Monitoring != selection {
+		t.Fatalf("monitoring not applied: %+v", applied)
+	}
+	if got := request("PUT", "/api/admin/settings", `{"title":"Local"}`, cookie, "https://local.example"); got.Code != http.StatusOK {
+		t.Fatalf("legacy settings update: %d %s", got.Code, got.Body)
+	}
+	reloaded, err = NewStore(store.dir).LoadMainSettings(initial)
+	if err != nil || reloaded.Monitoring == nil || *reloaded.Monitoring != selection {
+		t.Fatalf("monitoring not preserved by legacy update: %+v, %v", reloaded, err)
 	}
 	if got := request("PUT", "/api/admin/settings", `{"title":"No autorizado","subtitle":""}`, cookie, "https://attacker.example"); got.Code != http.StatusUnauthorized {
 		t.Fatalf("cross-origin update: %d", got.Code)

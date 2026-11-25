@@ -3,6 +3,7 @@ package controllers
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -16,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"ameriboard/internal/monitoring"
 
 	"github.com/labstack/echo/v4"
 )
@@ -100,6 +103,7 @@ type ReflectorConfig struct {
 	EchoLinkCommand      string
 	EchoLinkHistoryFile  string
 	BridgeConfigDir      string
+	Monitoring           *monitoring.Options
 }
 
 type ReflectorService struct {
@@ -119,12 +123,13 @@ func NewReflectorService(cfg ReflectorConfig) *ReflectorService {
 	return service
 }
 
-func (s *ReflectorService) SetDashboardSettings(title, subtitle, dvSwitchTitle, nxdnTitle string) {
+func (s *ReflectorService) SetDashboardSettings(title, subtitle, dvSwitchTitle, nxdnTitle string, options *monitoring.Options) {
 	s.mu.Lock()
 	s.cfg.Title = title
 	s.cfg.Subtitle = subtitle
 	s.cfg.DVSwitchTitle = dvSwitchTitle
 	s.cfg.NXDNTitle = nxdnTitle
+	s.cfg.Monitoring = options
 	s.mu.Unlock()
 }
 
@@ -207,7 +212,7 @@ func ysfGatewayType(ip string) string {
 	if ip == "localhost" || ip == "::1" || strings.HasPrefix(ip, "127.") {
 		return "Puente"
 	}
-	return "Estación o gateway"
+	return "Estación"
 }
 
 type EchoLinkStation struct {
@@ -796,6 +801,16 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	cfg := s.cfg
 	s.mu.RUnlock()
 
+	options := monitoring.Resolve(cfg.Monitoring)
+	if requested := c.Request().Header.Get("X-Ameriboard-Monitoring"); requested != "" {
+		var selection monitoring.Options
+		if err := json.Unmarshal([]byte(requested), &selection); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "Selección de modalidades inválida")
+		}
+		options = options.Intersect(selection)
+		c.Response().Header().Set("X-Ameriboard-Selective-Monitoring", "1")
+	}
+
 	now := time.Now()
 	cutoff24h := now.Add(-24 * time.Hour)
 
@@ -812,19 +827,23 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	var dvSwitchTX []TXEntry
 	var combined []CombinedActivity24h
 	var pendingYSFTx *activeYSFTx
-	ysfAvailable, dmrAvailable := true, true
+	ysfAvailable, dmrSourceAvailable := options.YSF, options.YSF || options.DVSwitch
 	warnings := make([]string, 0)
 
 	// 1. Parsear YSFReflector
-	ysfFiles, err := candidateLogFiles(cfg.YSFLogDir, "YSFReflector", now)
-	if err != nil {
-		ysfAvailable = false
-		if !errors.Is(err, os.ErrNotExist) {
-			warnings = append(warnings, "No se pueden leer los logs YSF")
-			c.Logger().Errorf("No se pueden leer los logs YSF: %v", err)
+	var ysfFiles []string
+	if options.YSF {
+		var err error
+		ysfFiles, err = candidateLogFiles(cfg.YSFLogDir, "YSFReflector", now)
+		if err != nil {
+			ysfAvailable = false
+			if !errors.Is(err, os.ErrNotExist) {
+				warnings = append(warnings, "No se pueden leer los logs YSF")
+				c.Logger().Errorf("No se pueden leer los logs YSF: %v", err)
+			}
+		} else if len(ysfFiles) == 0 {
+			ysfAvailable = false
 		}
-	} else if len(ysfFiles) == 0 {
-		ysfAvailable = false
 	}
 	for _, path := range ysfFiles {
 		f, err := os.Open(path)
@@ -916,15 +935,23 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	}
 
 	// 2. Parsear MMDVM_Bridge (soporta nombres MMDVM_Bridge-YYYY-MM-DD.log o mmdvm_bridge-YYYY-MM-DD.log)
-	dmrFiles, err := candidateLogFilesAnyPrefix(cfg.DMRLogDir, []string{"MMDVM_Bridge", "mmdvm_bridge"}, now)
-	if err != nil {
-		dmrAvailable = false
-		if !errors.Is(err, os.ErrNotExist) {
-			warnings = append(warnings, "No se pueden leer los logs DVSwitch")
-			c.Logger().Errorf("No se pueden leer los logs DVSwitch: %v", err)
+	var dmrFiles []string
+	if options.YSF || options.DVSwitch {
+		var err error
+		dmrFiles, err = candidateLogFilesAnyPrefix(cfg.DMRLogDir, []string{"MMDVM_Bridge", "mmdvm_bridge"}, now)
+		if err != nil {
+			dmrSourceAvailable = false
+			if !errors.Is(err, os.ErrNotExist) {
+				warning := "No se pueden leer los logs DVSwitch"
+				if !options.DVSwitch {
+					warning = "No se pueden leer los logs MMDVM_Bridge usados para YSF"
+				}
+				warnings = append(warnings, warning)
+				c.Logger().Errorf("%s: %v", warning, err)
+			}
+		} else if len(dmrFiles) == 0 {
+			dmrSourceAvailable = false
 		}
-	} else if len(dmrFiles) == 0 {
-		dmrAvailable = false
 	}
 	var lastYSFTime time.Time
 	var pendingNetworkYSF *activeYSFTx
@@ -934,16 +961,20 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	for _, path := range dmrFiles {
 		f, err := os.Open(path)
 		if err != nil {
-			dmrAvailable = false
-			warnings = append(warnings, "No se pueden leer todos los logs DMR")
-			c.Logger().Errorf("No se puede abrir el log DMR: %v", err)
+			dmrSourceAvailable = false
+			warning := "No se pueden leer todos los logs DMR"
+			if !options.DVSwitch {
+				warning = "No se pueden leer todos los logs MMDVM_Bridge usados para YSF"
+			}
+			warnings = append(warnings, warning)
+			c.Logger().Errorf("No se puede abrir el log MMDVM_Bridge: %v", err)
 			continue
 		}
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
 			line := strings.TrimRight(scanner.Text(), "\r\n")
 
-			if m := dvSwitchNetworkHeaderRe.FindStringSubmatch(line); len(m) == 5 {
+			if m := dvSwitchNetworkHeaderRe.FindStringSubmatch(line); options.DVSwitch && len(m) == 5 {
 				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
 					pendingDVSwitchNetworkTx = &activeDVSwitchNetworkTx{
 						mode: m[2], callsign: m[3], target: m[4], start: ts,
@@ -951,7 +982,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				}
 				continue
 			}
-			if m := dvSwitchNetworkTXRe.FindStringSubmatch(line); len(m) == 5 {
+			if m := dvSwitchNetworkTXRe.FindStringSubmatch(line); options.DVSwitch && len(m) == 5 {
 				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
 					pendingDVSwitchNetworkTx = &activeDVSwitchNetworkTx{
 						mode: m[2], callsign: m[3], target: "TG " + m[4], start: ts,
@@ -959,14 +990,14 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				}
 				continue
 			}
-			if m := dvSwitchNetworkDataRe.FindStringSubmatch(line); len(m) == 6 {
+			if m := dvSwitchNetworkDataRe.FindStringSubmatch(line); options.DVSwitch && len(m) == 6 {
 				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
 					pendingDVSwitchNetworkTx = &activeDVSwitchNetworkTx{
 						mode: m[2], callsign: m[3], target: m[4] + " at " + m[5], start: ts,
 					}
 				}
 			}
-			if m := dvSwitchNetworkEndRe.FindStringSubmatch(line); len(m) == 3 &&
+			if m := dvSwitchNetworkEndRe.FindStringSubmatch(line); options.DVSwitch && len(m) == 3 &&
 				pendingDVSwitchNetworkTx != nil && pendingDVSwitchNetworkTx.mode == m[2] {
 				if ts, err := parseLogTime(m[1], now.Location()); err == nil && !ts.Before(cutoff24h) {
 					duration := durationMetricRe.FindStringSubmatch(line)
@@ -996,7 +1027,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				pendingDVSwitchNetworkTx = nil
 			}
 
-			if m := dvSwitchMetricModeRe.FindStringSubmatch(line); len(m) == 3 {
+			if m := dvSwitchMetricModeRe.FindStringSubmatch(line); options.DVSwitch && len(m) == 3 {
 				duration := durationMetricRe.FindStringSubmatch(line)
 				loss := lossMetricRe.FindStringSubmatch(line)
 				ber := berMetricRe.FindStringSubmatch(line)
@@ -1024,7 +1055,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			}
 
 			// Registrar último indicativo YSF visto en el puente
-			if m := mmdvmYsfCallRe.FindStringSubmatch(line); len(m) == 3 {
+			if m := mmdvmYsfCallRe.FindStringSubmatch(line); options.YSF && len(m) == 3 {
 				if ts, err := parseLogTime(m[1], now.Location()); err == nil {
 					call := strings.TrimSpace(m[2])
 					if pendingNetworkYSF != nil && pendingNetworkYSF.callsign != call && !lastYSFTime.Before(cutoff24h) {
@@ -1042,7 +1073,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			}
 
 			// Fin de trama YSF dentro de MMDVM_Bridge
-			if m := mmdvmYsfNetEndRe.FindStringSubmatch(line); len(m) == 3 {
+			if m := mmdvmYsfNetEndRe.FindStringSubmatch(line); options.YSF && len(m) == 3 {
 				ts, err := parseLogTime(m[1], now.Location())
 				if err != nil || ts.Before(cutoff24h) {
 					continue
@@ -1069,7 +1100,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			}
 
 			// Inicio de transmisión de cualquiera de las modalidades de DVSwitch.
-			if m := dvSwitchBeginTxRe.FindStringSubmatch(line); len(m) == 6 {
+			if m := dvSwitchBeginTxRe.FindStringSubmatch(line); options.DVSwitch && len(m) == 6 {
 				ts, err := parseLogTime(m[1], now.Location())
 				if err != nil {
 					continue
@@ -1089,7 +1120,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 			}
 
 			// Fin de transmisión de cualquiera de las modalidades de DVSwitch.
-			if m := dvSwitchTxOffRe.FindStringSubmatch(line); len(m) == 4 {
+			if m := dvSwitchTxOffRe.FindStringSubmatch(line); options.DVSwitch && len(m) == 4 {
 				ts, err := parseLogTime(m[1], now.Location())
 				if err != nil || ts.Before(cutoff24h) {
 					pendingDVSwitchTx = nil
@@ -1153,9 +1184,13 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		scanErr := scanner.Err()
 		_ = f.Close()
 		if scanErr != nil {
-			dmrAvailable = false
-			warnings = append(warnings, "No se pueden leer todos los logs DMR")
-			c.Logger().Errorf("No se puede leer el log DMR: %v", scanErr)
+			dmrSourceAvailable = false
+			warning := "No se pueden leer todos los logs DMR"
+			if !options.DVSwitch {
+				warning = "No se pueden leer todos los logs MMDVM_Bridge usados para YSF"
+			}
+			warnings = append(warnings, warning)
+			c.Logger().Errorf("No se puede leer el log MMDVM_Bridge: %v", scanErr)
 		}
 	}
 
@@ -1239,39 +1274,57 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		lastUpdateStr = currentSnapshotTime.Format("03:04 PM")
 	}
 
-	bridges, bridgeErr := readDVSwitchBridges(cfg.BridgeConfigDir)
-	if bridgeErr != nil {
-		c.Logger().Errorf("No se pueden leer las configuraciones de puentes DVSwitch: %v", bridgeErr)
-		warnings = append(warnings, "No se pudieron leer todas las configuraciones de puentes DVSwitch.")
-	}
-
-	echoLinkConnected, echoLinkUptime, echoLinkAvailable, echoLinkErr := readEchoLinkStatus(c.Request().Context(), cfg.EchoLinkCommand)
-	if echoLinkErr != nil && !errors.Is(echoLinkErr, os.ErrNotExist) && !errors.Is(echoLinkErr, exec.ErrNotFound) {
-		c.Logger().Errorf("No se puede consultar EchoLink: %v", echoLinkErr)
-		if !echoLinkAvailable {
-			warnings = append(warnings, "No se puede consultar EchoLink")
+	var bridges []DVSwitchBridge
+	if options.DVSwitch {
+		var bridgeErr error
+		bridges, bridgeErr = readDVSwitchBridges(cfg.BridgeConfigDir)
+		if bridgeErr != nil {
+			c.Logger().Errorf("No se pueden leer las configuraciones de puentes DVSwitch: %v", bridgeErr)
+			warnings = append(warnings, "No se pudieron leer todas las configuraciones de puentes DVSwitch.")
 		}
 	}
+
+	var echoLinkConnected []EchoLinkStation
+	var echoLinkUptime string
+	var echoLinkAvailable bool
 	echoLinkLastHeard := make([]EchoLinkLastHeard, 0)
-	if s.echoLinkHistory != nil {
-		var historyErr error
-		if echoLinkAvailable {
-			echoLinkLastHeard, historyErr = s.echoLinkHistory.Observe(echoLinkConnected, now)
-		} else {
-			echoLinkLastHeard, historyErr = s.echoLinkHistory.Read()
+	if options.EchoLink {
+		var echoLinkErr error
+		echoLinkConnected, echoLinkUptime, echoLinkAvailable, echoLinkErr = readEchoLinkStatus(c.Request().Context(), cfg.EchoLinkCommand)
+		if echoLinkErr != nil && !errors.Is(echoLinkErr, os.ErrNotExist) && !errors.Is(echoLinkErr, exec.ErrNotFound) {
+			c.Logger().Errorf("No se puede consultar EchoLink: %v", echoLinkErr)
+			if !echoLinkAvailable {
+				warnings = append(warnings, "No se puede consultar EchoLink")
+			}
 		}
-		if historyErr != nil {
-			c.Logger().Errorf("No se puede actualizar el historial de EchoLink: %v", historyErr)
-			warnings = append(warnings, "No se pudo actualizar el historial de EchoLink.")
+		if s.echoLinkHistory != nil {
+			var historyErr error
+			if echoLinkAvailable {
+				echoLinkLastHeard, historyErr = s.echoLinkHistory.Observe(echoLinkConnected, now)
+			} else {
+				echoLinkLastHeard, historyErr = s.echoLinkHistory.Read()
+			}
+			if historyErr != nil {
+				c.Logger().Errorf("No se puede actualizar el historial de EchoLink: %v", historyErr)
+				warnings = append(warnings, "No se pudo actualizar el historial de EchoLink.")
+			}
 		}
 	}
 
-	ysfReflectorInfo := readYSFReflectorInfo(cfg.YSFReflectorConfig)
-	pysfReflector := readPYSFReflectorStatus(c.Request().Context(), cfg, now)
-	nxdnReflector, nxdnErr := readNXDNReflectorStatus("/etc/NXDNReflector.ini", "/var/log", now)
-	if nxdnErr != nil {
-		c.Logger().Errorf("No se puede leer el reflector NXDN: %v", nxdnErr)
-		warnings = append(warnings, "No se puede leer el reflector NXDN.")
+	var ysfReflectorInfo YSFReflectorInfo
+	var pysfReflector PYSFReflectorData
+	if options.YSF {
+		ysfReflectorInfo = readYSFReflectorInfo(cfg.YSFReflectorConfig)
+		pysfReflector = readPYSFReflectorStatus(c.Request().Context(), cfg, now)
+	}
+	var nxdnReflector NXDNReflectorData
+	if options.NXDN {
+		var nxdnErr error
+		nxdnReflector, nxdnErr = readNXDNReflectorStatus("/etc/NXDNReflector.ini", "/var/log", now)
+		if nxdnErr != nil {
+			c.Logger().Errorf("No se puede leer el reflector NXDN: %v", nxdnErr)
+			warnings = append(warnings, "No se puede leer el reflector NXDN.")
+		}
 	}
 
 	resp := DashboardStatusResponse{
@@ -1307,8 +1360,8 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		EchoLinkUptime:        echoLinkUptime,
 		DVSwitchBridges:       bridges,
 		YSFAvailable:          ysfAvailable,
-		YSFTrafficAvailable:   ysfAvailable || dmrAvailable,
-		DMRAvailable:          dmrAvailable,
+		YSFTrafficAvailable:   options.YSF && (ysfAvailable || dmrSourceAvailable),
+		DMRAvailable:          options.DVSwitch && dmrSourceAvailable,
 		EchoLinkAvailable:     echoLinkAvailable,
 		Warnings:              warnings,
 	}
