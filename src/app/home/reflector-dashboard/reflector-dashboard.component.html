@@ -355,10 +355,10 @@
         <h2 id="echolink-title">EchoLink conectado</h2>
         <div class="echolink-actions">
           <span class="count-pill">{{ d.echolinkConnected.length }}</span>
-          <button type="button" class="btn-dark" data-icon="ⓘ" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda de atributos</button>
+          <button type="button" class="btn-dark" data-icon="ⓘ" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda</button>
           @if (echolinkAdmin()) {
             <details #dropdownMenu class="admin-menu">
-              <summary class="btn-dark" data-icon="☰">Opciones EchoLink</summary>
+              <summary class="btn-dark" data-icon="☰">Opciones</summary>
               <div class="dropdown-panel">
                 <button type="button" class="btn-dark" data-icon="🔗" (click)="openEchoLinkAction(actionDialog, 'connect')">Conectar</button>
                 <button type="button" class="btn-dark" data-icon="💬" (click)="openEchoLinkAction(actionDialog, 'message')">Mensaje</button>
