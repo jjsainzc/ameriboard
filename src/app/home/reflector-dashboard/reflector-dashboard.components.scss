@@ -410,7 +410,9 @@
   color: #e2e8f0;
 
   h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+  table { width: 100%; }
   th, td { padding: 0.25rem 0.5rem; line-height: 1.25; }
+  thead th { text-align: left; }
   tbody th { width: 1%; text-transform: none; }
   button { margin-top: 0.75rem; }
 
@@ -537,7 +539,7 @@ table:not(.legend-table) {
     gap: 0.5rem;
   }
 
-  table {
+  table:not(.legend-table) {
     display: block;
 
     thead {
