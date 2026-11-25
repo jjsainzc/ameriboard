@@ -95,6 +95,7 @@ export class ReflectorDashboardComponent implements OnInit {
     { code: 'c', meaning: 'Texto del chat suprimido.' },
     { code: 'F', meaning: 'Reproduciendo un archivo mediante .play o .test.' },
     { code: 'f', meaning: 'Conexión full dúplex.' },
+    { code: 'I', meaning: 'El usuario está aislado (no participa en la conferencia)' },
     { code: 'K', meaning: 'Expulsado.' },
     { code: 'L', meaning: 'Oyente pasivo.' },
     { code: 'M', meaning: 'Audio y texto silenciados.' },
