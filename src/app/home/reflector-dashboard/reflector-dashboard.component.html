@@ -92,13 +92,19 @@
       }
     </header>
 
-    <!-- 4 Tarjetas KPI Superiores -->
-    @if (d.ysfAvailable || d.pysfReflector.available || d.ysfTrafficAvailable || d.dmrAvailable) {
+    <!-- Tarjetas KPI superiores -->
+    @if (d.ysfAvailable || d.pysfReflector.available || d.ysfTrafficAvailable || d.dmrAvailable || d.echolinkAvailable) {
     <section class="kpi-grid">
       @if (d.ysfAvailable || d.pysfReflector.available) {
       <div class="kpi-card border-cyan">
         <span class="kpi-label">CONECTADOS YSF AHORA</span>
         <span class="kpi-value">{{ (d.ysfAvailable ? d.stats.ysfConnectedCount : 0) + (d.pysfReflector.available ? d.pysfReflector.connected.length : 0) }}</span>
+      </div>
+      }
+      @if (d.echolinkAvailable) {
+      <div class="kpi-card border-purple echolink-kpi">
+        <span class="kpi-label">CONECTADOS ECHOLINK AHORA</span>
+        <span class="kpi-value">{{ d.echolinkConnected.length }}</span>
       </div>
       }
       @if (d.ysfTrafficAvailable) {

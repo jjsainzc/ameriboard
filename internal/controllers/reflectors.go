@@ -1274,14 +1274,10 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 		lastUpdateStr = currentSnapshotTime.Format("03:04 PM")
 	}
 
-	var bridges []DVSwitchBridge
-	if options.DVSwitch {
-		var bridgeErr error
-		bridges, bridgeErr = readDVSwitchBridges(cfg.BridgeConfigDir)
-		if bridgeErr != nil {
-			c.Logger().Errorf("No se pueden leer las configuraciones de puentes DVSwitch: %v", bridgeErr)
-			warnings = append(warnings, "No se pudieron leer todas las configuraciones de puentes DVSwitch.")
-		}
+	bridges, bridgeErr := readDVSwitchBridges(cfg.BridgeConfigDir)
+	if bridgeErr != nil {
+		c.Logger().Errorf("No se pueden leer las configuraciones de puentes DVSwitch: %v", bridgeErr)
+		warnings = append(warnings, "No se pudieron leer todas las configuraciones de puentes DVSwitch.")
 	}
 
 	var echoLinkConnected []EchoLinkStation

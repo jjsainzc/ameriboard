@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"ameriboard/internal/monitoring"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -119,8 +121,10 @@ func TestReflectorStatusIncludesConfiguredBridgesWithoutLogs(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "DVSwitch.ini"), []byte(config), 0600); err != nil {
 		t.Fatal(err)
 	}
+	disabled := monitoring.Options{}
 	service := NewReflectorService(ReflectorConfig{
 		BridgeConfigDir: root, YSFLogDir: root, DMRLogDir: root, EchoLinkCommand: "/nonexistent/tlbcmd",
+		Monitoring: &disabled,
 	})
 	e := echo.New()
 	rec := httptest.NewRecorder()

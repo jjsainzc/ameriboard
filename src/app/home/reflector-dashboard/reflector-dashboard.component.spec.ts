@@ -441,6 +441,7 @@ describe('ReflectorDashboardComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.border-cyan')).toBeNull();
     expect(fixture.nativeElement.querySelector('.border-purple')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.echolink-kpi')).toBeNull();
     expect(fixture.nativeElement.querySelector('.border-blue')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.border-emerald')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.ysf-last-heard')).not.toBeNull();
@@ -449,17 +450,29 @@ describe('ReflectorDashboardComponent', () => {
 
     TestBed.inject(ReflectorService).fetchStatusOnce().subscribe();
     http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
-      ...status, ysfAvailable: true, ysfTrafficAvailable: true, dmrAvailable: false, echolinkAvailable: true
+      ...status, ysfAvailable: true, ysfTrafficAvailable: true, dmrAvailable: false, echolinkAvailable: true,
+      echolinkConnectedList: [{ number: '1', user: 'W2LRC-R', attribute: '' }, { number: '2', user: 'KQ4HPI-R', attribute: '' }]
     });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.border-cyan')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.border-blue')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.border-emerald')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.border-purple')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.echolink-kpi .kpi-value').textContent.trim()).toBe('2');
     expect(fixture.nativeElement.querySelector('.dvswitch-table')).toBeNull();
     expect(fixture.nativeElement.querySelector('#echolink-title')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('#echolink-history-title')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeNull();
+
+    TestBed.inject(ReflectorService).fetchStatusOnce().subscribe();
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+      ...status, ysfAvailable: false, ysfTrafficAvailable: false, dmrAvailable: false, echolinkAvailable: true,
+      echolinkConnectedList: [{ number: '1', user: 'W2LRC-R', attribute: '' }]
+    });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.kpi-grid')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.echolink-kpi .kpi-value').textContent.trim()).toBe('1');
+    expect(fixture.nativeElement.querySelector('.ysf-last-heard')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.dvswitch-table')).toBeNull();
     fixture.destroy();
     http.verify();
   });
