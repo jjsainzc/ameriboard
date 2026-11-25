@@ -328,7 +328,7 @@ export class ReflectorDashboardComponent implements OnInit {
             this.echolinkActionNotice.set(action === 'connect' && body?.['permanent'] === true
               ? response.output ?? '' : '');
           } else {
-            this.echolinkActionNotice.set(formatEchoLinkActionOutput(response.output ?? '') || 'Acción EchoLink ejecutada.');
+            this.echolinkActionNotice.set(formatEchoLinkActionOutput(response.output ?? '') || 'Acción ejecutada.');
           }
           if (action === 'unban') {
             this.loadBannedStations();
@@ -343,7 +343,7 @@ export class ReflectorDashboardComponent implements OnInit {
           this.echolinkActionBusy.set(false);
           this.pendingEchoLinkAction.set(null);
           if (this.handleExpiredAdmin(error)) { return; }
-          this.echolinkActionError.set(this.actionErrorMessage(error, 'No se pudo ejecutar la acción EchoLink.'));
+          this.echolinkActionError.set(this.actionErrorMessage(error, 'No se pudo ejecutar la acción de EchoLink.'));
         }
       });
   }

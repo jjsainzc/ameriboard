@@ -553,7 +553,7 @@ describe('ReflectorDashboardComponent', () => {
       .flush({ output: '0\n' });
     http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
     fixture.detectChanges();
-    expect(panel.querySelector('.echolink-action-feedback[role="status"]')?.textContent?.trim()).toBe('Acción EchoLink ejecutada.');
+    expect(panel.querySelector('.echolink-action-feedback[role="status"]')?.textContent?.trim()).toBe('Acción ejecutada.');
     fixture.destroy();
     http.verify();
   });

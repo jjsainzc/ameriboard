@@ -507,7 +507,7 @@
     </dialog>
     <dialog #actionDialog class="echolink-action-dialog"
       [class.permanent-connections-dialog]="actionDialogAction() === 'retry-list'" aria-labelledby="echolink-action-title">
-      <h2 id="echolink-action-title">{{ actionDialogAction() === 'retry-list' ? 'Conexiones permanentes' : 'Acción EchoLink' }}</h2>
+      <h2 id="echolink-action-title">{{ actionDialogAction() === 'retry-list' ? 'Conexiones permanentes' : 'Acción' }}</h2>
       @if (echolinkActionError()) { <p class="echolink-action-error" role="alert">{{ echolinkActionError() }}</p> }
       @if (echolinkActionNotice()) { <p role="status">{{ echolinkActionNotice() }}</p> }
       @if (actionDialogAction() === 'ban-list') {
