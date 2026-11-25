@@ -327,7 +327,7 @@ export class ReflectorDashboardComponent implements OnInit {
             this.echolinkActionNotice.set(action === 'connect' && body?.['permanent'] === true
               ? response.output ?? '' : '');
           } else {
-            this.echolinkActionNotice.set(response.output || 'Acción EchoLink ejecutada.');
+            this.echolinkActionNotice.set(formatEchoLinkActionOutput(response.output ?? '') || 'Acción EchoLink ejecutada.');
           }
           if (action === 'unban') {
             this.loadBannedStations();
@@ -433,6 +433,13 @@ export class ReflectorDashboardComponent implements OnInit {
     return error instanceof HttpErrorResponse && typeof error.error?.message === 'string'
       ? error.error.message : fallback;
   }
+}
+
+function formatEchoLinkActionOutput(output: string): string {
+  const lines = output.trim().split(/\r\n|\r|\n/);
+  if (/^tlbcmd version\b/i.test(lines[0]?.trim() ?? '')) { lines.shift(); }
+  if (lines[0]?.trim() === '0') { lines.shift(); }
+  return lines.join('\n').trim();
 }
 
 function isEchoLinkPermanentConnection(value: unknown): value is EchoLinkPermanentConnection {

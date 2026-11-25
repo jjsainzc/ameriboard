@@ -528,12 +528,13 @@ describe('ReflectorDashboardComponent', () => {
     const http = TestBed.inject(HttpTestingController);
     http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush([]);
     http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
-    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+    const status = {
       header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
       stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
       echolinkAvailable: true,
       echolinkConnectedList: [{ number: '1', user: 'TEST1', attribute: '' }]
-    });
+    };
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
     fixture.detectChanges();
     const panel = fixture.nativeElement.querySelector('[aria-labelledby="echolink-title"]') as HTMLElement;
     (panel.querySelector('[aria-label="Mutear estación"]') as HTMLButtonElement).click();
@@ -541,6 +542,18 @@ describe('ReflectorDashboardComponent', () => {
       .flush({ message: 'No se pudo ejecutar tlbcmd' }, { status: 400, statusText: 'Bad Request' });
     fixture.detectChanges();
     expect(panel.querySelector('[role="alert"]')?.textContent).toContain('No se pudo ejecutar tlbcmd');
+    (panel.querySelector('[aria-label="Mutear estación"]') as HTMLButtonElement).click();
+    http.expectOne(request => request.method === 'POST' && request.url.endsWith('/api/admin/echolink/action'))
+      .flush({ output: 'tlbcmd Version 0.56 compiled Nov 25 2026 11:00:39\r\n0\r\nTEST1 muted.\r\n' });
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+    fixture.detectChanges();
+    expect(panel.querySelector('.echolink-action-feedback[role="status"]')?.textContent?.trim()).toBe('TEST1 muted.');
+    (panel.querySelector('[aria-label="Mutear estación"]') as HTMLButtonElement).click();
+    http.expectOne(request => request.method === 'POST' && request.url.endsWith('/api/admin/echolink/action'))
+      .flush({ output: '0\n' });
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+    fixture.detectChanges();
+    expect(panel.querySelector('.echolink-action-feedback[role="status"]')?.textContent?.trim()).toBe('Acción EchoLink ejecutada.');
     fixture.destroy();
     http.verify();
   });
