@@ -389,7 +389,7 @@ func (h *Handler) executeEchoLinkAction(c echo.Context) error {
 
 func echoLinkLogAction(action string) string {
 	switch strings.ToLower(strings.TrimSpace(action)) {
-	case "connect", "disconnect", "ban", "ban-list", "unban", "mute", "unmute", "message", "retry-list", "retry-cancel":
+	case "connect", "disconnect", "ban", "ban-list", "unban", "mute", "unmute", "message", "retry-list", "retry-cancel", "permanent-list":
 		return strings.ToLower(strings.TrimSpace(action))
 	default:
 		return "inválida"

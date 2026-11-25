@@ -1,13 +1,22 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { DOCUMENT } from '@angular/common';
-import { Component, computed, DestroyRef, ElementRef, inject, OnInit, signal, viewChildren } from '@angular/core';
+import { Component, computed, DestroyRef, ElementRef, inject, OnInit, signal, viewChild, viewChildren } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ReflectorService, SiteProfile } from '../../core/services/reflector.service';
 import { EchoLinkStation } from '../../core/models/reflector.model';
 import { TablePagination, TablePaginationComponent } from '../../shared/table-pagination/table-pagination.component';
+
+interface EchoLinkPermanentConnection {
+  target: string;
+  state: 'comprobando' | 'conectado' | 'esperando' | 'error';
+  attempts: number;
+  lastAttempt?: string;
+  lastResult?: string;
+  lastConnected?: string;
+}
 
 @Component({
   selector: 'app-reflector-dashboard',
@@ -25,6 +34,7 @@ export class ReflectorDashboardComponent implements OnInit {
   private readonly base = (this.document.querySelector('base')?.getAttribute('href') ?? '/').replace(/\/$/, '');
   private readonly headers = new HttpHeaders({ 'X-Ameriboard-Request': '1' });
   private readonly dropdownMenus = viewChildren<ElementRef<HTMLDetailsElement>>('dropdownMenu');
+  private readonly actionDialog = viewChild<ElementRef<HTMLDialogElement>>('actionDialog');
 
   readonly data = this.reflectorService.data;
   readonly error = this.reflectorService.error;
@@ -53,7 +63,7 @@ export class ReflectorDashboardComponent implements OnInit {
   readonly actionDialogIp = signal('');
   readonly actionDialogPermanent = signal(false);
   readonly bannedStations = signal<string[]>([]);
-  readonly pendingRetries = signal<{ target: string; attempts: number }[]>([]);
+  readonly pendingRetries = signal<EchoLinkPermanentConnection[]>([]);
   readonly ysfConnectedPages = new TablePagination(computed(() => this.data()?.ysfConnected ?? []));
   readonly ysfLastHeardPages = new TablePagination(computed(() => this.data()?.ysfLastHeard ?? []));
   readonly pysfConnectedPages = new TablePagination(computed(() => this.data()?.pysfReflector?.connected ?? []));
@@ -104,6 +114,9 @@ export class ReflectorDashboardComponent implements OnInit {
   ngOnInit(): void {
     this.reflectorService.selectProfile('');
     this.reflectorService.pollStatus(5000).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(status => {
+      if (this.actionDialogAction() === 'retry-list' && this.actionDialog()?.nativeElement.open) {
+        this.loadPendingRetries();
+      }
       if (!status) { return; }
       const connected = new Set(status.echolinkConnected.map(station => station.user.trim().toUpperCase()));
       const profileId = this.selectedProfileId();
@@ -132,6 +145,7 @@ export class ReflectorDashboardComponent implements OnInit {
     this.echolinkActionError.set('');
     this.echolinkActionNotice.set('');
     this.bannedStations.set([]);
+    this.pendingRetries.set([]);
     this.reflectorService.selectProfile(profileId);
   }
 
@@ -254,7 +268,10 @@ export class ReflectorDashboardComponent implements OnInit {
     this.echolinkActionNotice.set('');
     if (!dialog.open) { dialog.showModal(); }
     if (action === 'ban-list') { this.loadBannedStations(); }
-    if (action === 'retry-list') { this.loadPendingRetries(); }
+    if (action === 'retry-list') {
+      this.pendingRetries.set([]);
+      this.loadPendingRetries();
+    }
   }
 
   submitEchoLinkAction(dialog: HTMLDialogElement): void {
@@ -291,7 +308,8 @@ export class ReflectorDashboardComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: response => {
           this.echolinkActionBusy.set(false);
-          if (action === 'connect' && body?.['permanent'] === true && callsign.trim()) {
+          if (action === 'connect' && body?.['permanent'] === true && callsign.trim()
+            && response.output?.includes('programada en segundo plano')) {
             this.pendingPermanentConnections.update(pending => [
               ...pending.filter(connection =>
                 connection.profileId !== profileId || connection.callsign.toUpperCase() !== callsign.trim().toUpperCase()
@@ -306,8 +324,8 @@ export class ReflectorDashboardComponent implements OnInit {
           }
           this.pendingEchoLinkAction.set(null);
           if (action === 'connect' || action === 'disconnect') {
-            this.echolinkActionNotice.set(action === 'connect' && response.output?.startsWith('No se pudo conectar')
-              ? response.output : '');
+            this.echolinkActionNotice.set(action === 'connect' && body?.['permanent'] === true
+              ? response.output ?? '' : '');
           } else {
             this.echolinkActionNotice.set(response.output || 'Acción EchoLink ejecutada.');
           }
@@ -367,24 +385,30 @@ export class ReflectorDashboardComponent implements OnInit {
     this.executeEchoLinkAction('retry-cancel', target);
   }
 
-  private loadPendingRetries(): void {
+  loadPendingRetries(): void {
     if (this.echolinkActionBusy()) { return; }
     this.echolinkActionBusy.set(true);
-    this.pendingRetries.set([]);
     const profileId = this.selectedProfileId();
-    this.http.post<{ output: string }>(this.echoLinkActionUrl(profileId), { action: 'retry-list' }, { headers: this.headers })
+    this.http.post<{ output: string }>(this.echoLinkActionUrl(profileId), { action: 'permanent-list' }, { headers: this.headers })
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: response => {
           this.echolinkActionBusy.set(false);
           if (profileId !== this.selectedProfileId()) { return; }
-          this.pendingRetries.set(response.output.split('\n').map(line => line.trim().split(/\s+/))
-            .filter(fields => fields.length === 2 && fields[0])
-            .map(([target, attempts]) => ({ target, attempts: Number(attempts) })));
+          try {
+            const entries: unknown = JSON.parse(response.output);
+            if (!Array.isArray(entries) || !entries.every(isEchoLinkPermanentConnection)) {
+              throw new Error('Respuesta inválida');
+            }
+            this.pendingRetries.set(entries);
+            this.echolinkActionError.set('');
+          } catch {
+            this.echolinkActionError.set('No se pudo interpretar la lista de conexiones permanentes.');
+          }
         },
         error: error => {
           this.echolinkActionBusy.set(false);
           if (this.handleExpiredAdmin(error)) { return; }
-          this.echolinkActionError.set(this.actionErrorMessage(error, 'No se pudieron consultar los reintentos pendientes.'));
+          this.echolinkActionError.set(this.actionErrorMessage(error, 'No se pudieron consultar las conexiones permanentes.'));
         }
       });
   }
@@ -409,6 +433,16 @@ export class ReflectorDashboardComponent implements OnInit {
     return error instanceof HttpErrorResponse && typeof error.error?.message === 'string'
       ? error.error.message : fallback;
   }
+}
+
+function isEchoLinkPermanentConnection(value: unknown): value is EchoLinkPermanentConnection {
+  if (typeof value !== 'object' || value === null) { return false; }
+  const entry = value as Record<string, unknown>;
+  return typeof entry['target'] === 'string' &&
+    typeof entry['state'] === 'string' &&
+    ['comprobando', 'conectado', 'esperando', 'error'].includes(entry['state']) &&
+    typeof entry['attempts'] === 'number' && Number.isInteger(entry['attempts']) && entry['attempts'] >= 0 &&
+    ['lastAttempt', 'lastResult', 'lastConnected'].every(key => entry[key] === undefined || typeof entry[key] === 'string');
 }
 
 export function parseBannedStations(output: string): string[] {

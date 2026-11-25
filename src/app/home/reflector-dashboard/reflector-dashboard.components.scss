@@ -29,6 +29,14 @@
 .echolink-section { --section-accent: #c4b5fd; }
 .dvswitch-section { --section-accent: #34d399; }
 
+.echolink-section:has(.admin-menu[open]) {
+  position: relative;
+  z-index: 3;
+  overflow: visible;
+}
+
+.echolink-section .panel-card:has(.admin-menu[open]) { overflow: visible; }
+
 .dashboard-section .panel-card { border-color: var(--section-accent); }
 
 .dashboard-section-summary {
@@ -291,7 +299,7 @@
   position: absolute;
   z-index: 3;
   right: 0;
-  min-width: 13rem;
+  min-width: min(13rem, calc(100vw - 3rem));
   padding: .35rem;
   border: 1px solid #64748b;
   background: #131724;
@@ -396,6 +404,78 @@
   padding: 0;
 
   li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .35rem 0; }
+}
+
+.permanent-connections-dialog {
+  width: min(42rem, 95vw);
+  max-height: 90vh;
+}
+
+.permanent-connections {
+  display: grid;
+  gap: .75rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  padding: 0 .25rem 0 0;
+  margin: 0 0 1rem;
+
+  > li:not(.permanent-connections-empty) {
+    min-width: 0;
+    padding: .85rem;
+    border: 1px solid #334155;
+    border-radius: .5rem;
+    background: #192334;
+  }
+}
+
+.permanent-connection-header, .permanent-connection-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+}
+
+.permanent-connection-header {
+  justify-content: space-between;
+  gap: .75rem;
+
+  .btn-dark { margin-right: 0; }
+}
+
+.permanent-connection-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.permanent-connection-state {
+  padding: .2rem .5rem;
+  border-radius: .35rem;
+  background: #334155;
+  color: #f1f5f9;
+  font-size: .8rem;
+
+  &.connected { background: #14532d; color: #dcfce7; }
+  &.failed { background: #7f1d1d; color: #fee2e2; }
+}
+
+.permanent-connection-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+  gap: .6rem 1rem;
+  margin: .75rem 0 0;
+  font-size: .875rem;
+
+  dt { color: #cbd5e1; }
+  dd { margin: .15rem 0 0; color: #f8fafc; overflow-wrap: anywhere; }
+}
+
+.permanent-connection-result {
+  margin: .75rem 0 0;
+  color: #cbd5e1;
+  font-size: .875rem;
+  overflow-wrap: anywhere;
 }
 
 .echolink-action-error { color: #fca5a5; }

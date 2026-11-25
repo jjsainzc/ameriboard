@@ -545,6 +545,47 @@ describe('ReflectorDashboardComponent', () => {
     http.verify();
   });
 
+  it('lets an administrator inspect and remove permanent connections while EchoLink is unavailable', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+    const status = {
+      header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
+      echolinkAvailable: false
+    };
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.textContent).toContain('EchoLink no está disponible');
+    const dialog = root.querySelector('#echolink-action-title')!.closest('dialog') as HTMLDialogElement;
+    dialog.showModal = vi.fn();
+    dialog.close = vi.fn();
+    const menuButtons = Array.from(root.querySelectorAll('[aria-labelledby="echolink-title"] .admin-menu button'));
+    (menuButtons[3] as HTMLButtonElement).click();
+    http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'))
+      .flush({ output: JSON.stringify([{ target: 'HC1LNM', state: 'error', attempts: 1, lastResult: 'TLB no disponible' }]) });
+    fixture.detectChanges();
+    expect(dialog.textContent).toContain('HC1LNM');
+    expect(dialog.textContent).toContain('TLB no disponible');
+    (dialog.querySelector('.permanent-connections button') as HTMLButtonElement).click();
+    const remove = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
+    expect(remove.request.body).toEqual({ action: 'retry-cancel', callsign: 'HC1LNM' });
+    remove.flush({ output: 'Conexión permanente eliminada.' });
+    http.expectOne(request => request.url.endsWith('/api/admin/echolink/action')).flush({ output: '[]' });
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+    fixture.detectChanges();
+    expect(dialog.textContent).toContain('No hay conexiones permanentes.');
+    fixture.destroy();
+    http.verify();
+  });
+
     it('offers global actions, ban management and distinct mute states', async () => {
       await TestBed.configureTestingModule({
         imports: [ReflectorDashboardComponent],
@@ -579,7 +620,7 @@ describe('ReflectorDashboardComponent', () => {
       dialog.close = vi.fn();
       const globalMenu = panel.querySelector('.admin-menu')!;
       const buttons = Array.from(globalMenu.querySelectorAll('button'));
-      expect(buttons.map(button => button.textContent?.trim())).toEqual(['Conectar', 'Mensaje', 'Lista de baneados', 'Reintentos pendientes']);
+      expect(buttons.map(button => button.textContent?.trim())).toEqual(['Conectar', 'Mensaje', 'Lista de baneados', 'Conexiones permanentes']);
       (globalMenu as HTMLDetailsElement).open = true;
       globalMenu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       expect((globalMenu as HTMLDetailsElement).open).toBe(true);
@@ -602,6 +643,27 @@ describe('ReflectorDashboardComponent', () => {
       expect(dialog.querySelector('.banned-stations')?.textContent).not.toContain('W1AW');
       expect(dialog.querySelector('.banned-stations')?.textContent).toContain('KQ4ABC');
 
+      buttons[3].click();
+      const permanentList = http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'));
+      expect(permanentList.request.body).toEqual({ action: 'permanent-list' });
+      permanentList.flush({ output: JSON.stringify([
+        { target: 'W1AW', state: 'conectado', attempts: 2, lastConnected: '2026-11-25T10:00:00Z' },
+        { target: 'TEST3', state: 'error', attempts: 3, lastAttempt: '2026-11-25T10:01:00Z', lastResult: 'Estación no encontrada' }
+      ]) });
+      fixture.detectChanges();
+      expect(dialog.textContent).toContain('W1AW');
+      expect(dialog.textContent).toContain('Conectado');
+      expect(dialog.textContent).toContain('Última conexión observada');
+      expect(dialog.textContent).toContain('TEST3');
+      expect(dialog.textContent).toContain('Último intento');
+      expect(dialog.textContent).toContain('Estación no encontrada');
+      const permanentCards = dialog.querySelectorAll('.permanent-connections > li');
+      expect(permanentCards).toHaveLength(2);
+      expect(permanentCards[0].textContent).toContain('W1AW');
+      expect(permanentCards[1].textContent).toContain('TEST3');
+      expect(permanentCards[1].querySelector('button')?.getAttribute('aria-label'))
+        .toBe('Eliminar conexión permanente TEST3');
+
       expect(buttons[0].classList.contains('btn-dark')).toBe(true);
       expect(buttons[0].dataset['icon']).toBeTruthy();
       buttons[0].click();
@@ -622,11 +684,11 @@ describe('ReflectorDashboardComponent', () => {
       expect(connecting.textContent).toContain('W1AW');
       expect(connecting.textContent).toContain('Conectando');
       expect(connecting.getAttribute('aria-busy')).toBe('true');
-      connect.flush({ output: 'No se pudo conectar con W1AW; se reintentará cada 12 s en segundo plano.' });
+      connect.flush({ output: 'Conexión permanente con W1AW programada en segundo plano.' });
       http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
       fixture.detectChanges();
       expect(panel.querySelector('tr.echolink-connecting')?.textContent).toContain('W1AW');
-      expect(panel.textContent).toContain('se reintentará');
+      expect(panel.textContent).toContain('programada en segundo plano');
 
       fixture.componentInstance.refresh();
       http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
@@ -665,6 +727,16 @@ describe('ReflectorDashboardComponent', () => {
       fixture.detectChanges();
       expect(panel.querySelector('tr.echolink-connecting')).toBeNull();
       expect(panel.querySelector('[role="alert"]')?.textContent).toContain('Error al conectar');
+
+      buttons[0].click();
+      fixture.componentInstance.actionDialogInput.set('W2AW');
+      fixture.componentInstance.actionDialogPermanent.set(true);
+      fixture.componentInstance.submitEchoLinkAction(dialog);
+      http.expectOne(request => request.url.endsWith('/api/admin/echolink/action'))
+        .flush({ output: 'tlbcmd Version 0.56\n0\nConnecting to "W2AW".' });
+      http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush(status);
+      fixture.detectChanges();
+      expect(panel.querySelector('tr.echolink-connecting')).toBeNull();
       fixture.destroy();
       http.verify();
     });

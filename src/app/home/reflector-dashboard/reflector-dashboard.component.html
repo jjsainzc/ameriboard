@@ -358,7 +358,7 @@
     </details>
     }
 
-    @if (d.echolinkAvailable) {
+    @if (d.echolinkAvailable || echolinkAdmin()) {
     <details class="dashboard-section echolink-section" open>
       <summary class="dashboard-section-summary"><span>EchoLink</span></summary>
     <section class="echolink-grid" aria-label="Actividad EchoLink">
@@ -375,7 +375,7 @@
                 <button type="button" class="btn-dark" data-icon="🔗" (click)="openEchoLinkAction(actionDialog, 'connect')">Conectar</button>
                 <button type="button" class="btn-dark" data-icon="💬" (click)="openEchoLinkAction(actionDialog, 'message')">Mensaje</button>
                 <button type="button" class="btn-dark" data-icon="⛔" (click)="openEchoLinkAction(actionDialog, 'ban-list')">Lista de baneados</button>
-                <button type="button" class="btn-dark" data-icon="⏳" (click)="openEchoLinkAction(actionDialog, 'retry-list')">Reintentos pendientes</button>
+                <button type="button" class="btn-dark" data-icon="⏳" (click)="openEchoLinkAction(actionDialog, 'retry-list')">Conexiones permanentes</button>
               </div>
             </details>
           }
@@ -383,6 +383,7 @@
       </div>
       @if (echolinkActionError()) { <p class="echolink-action-feedback echolink-action-error" role="alert">{{ echolinkActionError() }}</p> }
       @if (echolinkActionNotice()) { <p class="echolink-action-feedback" role="status">{{ echolinkActionNotice() }}</p> }
+      @if (!d.echolinkAvailable) { <p class="echolink-action-feedback" role="status">EchoLink no está disponible; se seguirán intentando las conexiones permanentes.</p> }
       @if (d.echolinkUptime !== '—') {
         <div class="echolink-uptime mono">{{ d.echolinkUptime }}</div>
       }
@@ -504,8 +505,9 @@
       </table>
       <button type="button" class="btn-dark" data-icon="✕" (click)="legendDialog.close()">Cerrar</button>
     </dialog>
-    <dialog #actionDialog class="echolink-action-dialog" aria-labelledby="echolink-action-title">
-      <h2 id="echolink-action-title">Acción EchoLink</h2>
+    <dialog #actionDialog class="echolink-action-dialog"
+      [class.permanent-connections-dialog]="actionDialogAction() === 'retry-list'" aria-labelledby="echolink-action-title">
+      <h2 id="echolink-action-title">{{ actionDialogAction() === 'retry-list' ? 'Conexiones permanentes' : 'Acción EchoLink' }}</h2>
       @if (echolinkActionError()) { <p class="echolink-action-error" role="alert">{{ echolinkActionError() }}</p> }
       @if (echolinkActionNotice()) { <p role="status">{{ echolinkActionNotice() }}</p> }
       @if (actionDialogAction() === 'ban-list') {
@@ -521,18 +523,38 @@
           </ul>
         }
       } @else if (actionDialogAction() === 'retry-list') {
-        <h3>Conexiones permanentes pendientes</h3>
-        @if (echolinkActionBusy()) { <p role="status">Consultando reintentos...</p> }
-        @else {
-          <ul class="banned-stations">
+        @if (echolinkActionBusy() && pendingRetries().length === 0) { <p role="status">Consultando conexiones...</p> }
+        @else if (!echolinkActionError()) {
+          <ul class="permanent-connections">
             @for (retry of pendingRetries(); track retry.target) {
-              <li><span>{{ retry.target }} · {{ retry.attempts }} intentos</span>
-                <button type="button" class="btn-dark btn-dark-danger" data-icon="✕" (click)="cancelRetry(retry.target)">Cancelar</button></li>
+              <li>
+                <div class="permanent-connection-header">
+                  <div class="permanent-connection-title">
+                    <strong>{{ retry.target }}</strong>
+                    <span class="permanent-connection-state" [class.connected]="retry.state === 'conectado'"
+                      [class.failed]="retry.state === 'error'">
+                      {{ retry.state === 'conectado' ? 'Conectado' : retry.state === 'esperando' ? 'Esperando respuesta / reconectando' : retry.state === 'error' ? 'Error; se reintentará' : 'Comprobando' }}
+                    </span>
+                  </div>
+                  <button type="button" class="btn-dark btn-dark-danger" data-icon="✕" [disabled]="echolinkActionBusy()"
+                    [attr.aria-label]="'Eliminar conexión permanente ' + retry.target" (click)="cancelRetry(retry.target)">Eliminar</button>
+                </div>
+                <dl class="permanent-connection-details">
+                  @if (retry.lastConnected) {
+                    <div><dt>Última conexión observada</dt><dd>{{ retry.lastConnected | date:'dd/MM/yyyy HH:mm:ss' }}</dd></div>
+                  }
+                  @if (retry.lastAttempt) {
+                    <div><dt>Último intento · {{ retry.attempts }} {{ retry.attempts === 1 ? 'intento' : 'intentos' }}</dt><dd>{{ retry.lastAttempt | date:'dd/MM/yyyy HH:mm:ss' }}</dd></div>
+                  }
+                </dl>
+                @if (retry.lastResult) { <p class="permanent-connection-result">{{ retry.lastResult }}</p> }
+              </li>
             } @empty {
-              <li>No hay reintentos pendientes.</li>
+              <li class="permanent-connections-empty">No hay conexiones permanentes.</li>
             }
           </ul>
         }
+        <button type="button" class="btn-dark" data-icon="♻" [disabled]="echolinkActionBusy()" (click)="loadPendingRetries()">Actualizar</button>
       } @else if (actionDialogAction() === 'connect' || actionDialogAction() === 'ban') {
         <label>
           Indicativo
@@ -548,7 +570,7 @@
           <label class="checkbox-label">
             <input type="checkbox" [checked]="actionDialogPermanent()"
               (change)="actionDialogPermanent.set($any($event.target).checked)" />
-            Permanente: si no conecta, reintentar cada 12 s en segundo plano
+            Permanente: mantener y reintentar automáticamente cada 12 s
           </label>
         }
         <button type="button" class="btn-dark btn-dark-primary" data-icon="✔" (click)="submitEchoLinkAction(actionDialog)" [disabled]="echolinkActionBusy() || !actionDialogInput().trim()">Aplicar</button>

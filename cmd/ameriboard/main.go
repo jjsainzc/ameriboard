@@ -96,11 +96,15 @@ func run() error {
 		PYSFReflectorConfig:  cfg.PYSFReflectorConfig,
 		PYSFReflectorService: cfg.PYSFReflectorService,
 		BridgeCall:           cfg.BridgeCall, YSFLogDir: cfg.YSFLogDir, DMRLogDir: cfg.DMRLogDir,
-		EchoLinkCommand:     cfg.EchoLinkCommand,
-		EchoLinkHistoryFile: filepath.Join(*stateDir, "echolink-history.json"),
-		BridgeConfigDir:     "/opt",
-		Monitoring:          mainSettings.Monitoring,
+		EchoLinkCommand:       cfg.EchoLinkCommand,
+		EchoLinkHistoryFile:   filepath.Join(*stateDir, "echolink-history.json"),
+		EchoLinkPermanentFile: filepath.Join(*stateDir, "echolink-permanent.json"),
+		BridgeConfigDir:       "/opt",
+		Monitoring:            mainSettings.Monitoring,
 	})
+	if err := reflector.RestoreEchoLinkConnections(); err != nil {
+		return fmt.Errorf("restaurar conexiones permanentes de EchoLink: %w", err)
+	}
 	sites := profiles.NewHandler(store)
 	sites.SetEchoLinkActionExecutor(func(ctx context.Context, action profiles.EchoLinkAction) (string, error) {
 		return reflector.ExecuteEchoLinkAction(ctx, controllers.EchoLinkActionRequest{

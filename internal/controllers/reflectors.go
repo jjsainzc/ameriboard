@@ -87,33 +87,36 @@ JSON, ejemplo
 */
 
 type ReflectorConfig struct {
-	Title                string
-	Subtitle             string
-	Badge                string
-	DVSwitchTitle        string
-	NXDNTitle            string
-	EchoLinkTitle        string
-	YSFReflector         string
-	YSFReflectorConfig   string
-	PYSFReflectorConfig  string
-	PYSFReflectorService string
-	TGIFTalkgroup        string
-	BridgeCall           string
-	YSFLogDir            string
-	DMRLogDir            string
-	EchoLinkCommand      string
-	EchoLinkHistoryFile  string
-	BridgeConfigDir      string
-	Monitoring           *monitoring.Options
+	Title                 string
+	Subtitle              string
+	Badge                 string
+	DVSwitchTitle         string
+	NXDNTitle             string
+	EchoLinkTitle         string
+	YSFReflector          string
+	YSFReflectorConfig    string
+	PYSFReflectorConfig   string
+	PYSFReflectorService  string
+	TGIFTalkgroup         string
+	BridgeCall            string
+	YSFLogDir             string
+	DMRLogDir             string
+	EchoLinkCommand       string
+	EchoLinkHistoryFile   string
+	EchoLinkPermanentFile string
+	BridgeConfigDir       string
+	Monitoring            *monitoring.Options
 }
 
 type ReflectorService struct {
-	mu              sync.RWMutex
-	cfg             ReflectorConfig
-	echoLinkHistory *echoLinkHistoryStore
-	retryMu         sync.Mutex
-	retries         map[string]*echoLinkRetry
-	retryInterval   time.Duration
+	mu               sync.RWMutex
+	cfg              ReflectorConfig
+	echoLinkHistory  *echoLinkHistoryStore
+	retryMu          sync.Mutex
+	echoLinkActionMu sync.Mutex
+	retries          map[string]*echoLinkRetry
+	retryInterval    time.Duration
+	retryStorageErr  error
 }
 
 func NewReflectorService(cfg ReflectorConfig) *ReflectorService {
@@ -326,6 +329,21 @@ type EchoLinkActionRequest struct {
 
 var echoLinkTargetPattern = regexp.MustCompile(`^[A-Za-z0-9*][A-Za-z0-9*./:_-]{0,127}$`)
 
+const echoLinkAlreadyConnected = 200006
+
+type echoLinkProtocolError struct {
+	code int
+}
+
+func (e *echoLinkProtocolError) Error() string {
+	return fmt.Sprintf("theLinkBox devolvió el código %d", e.code)
+}
+
+func echoLinkIsAlreadyConnected(err error) bool {
+	var protocolErr *echoLinkProtocolError
+	return errors.As(err, &protocolErr) && protocolErr.code == echoLinkAlreadyConnected
+}
+
 func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request EchoLinkActionRequest) (string, error) {
 	s.mu.RLock()
 	command := s.cfg.EchoLinkCommand
@@ -342,6 +360,10 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 	callsign := strings.TrimSpace(request.Callsign)
 	args := append([]string{}, parts[1:]...)
 	action := strings.ToLower(strings.TrimSpace(request.Action))
+	if (action == "connect" && request.Permanent) || action == "disconnect" || action == "retry-cancel" {
+		s.echoLinkActionMu.Lock()
+		defer s.echoLinkActionMu.Unlock()
+	}
 	if action == "connect" || action == "disconnect" || action == "ban" || action == "unban" || action == "mute" || action == "unmute" || action == "retry-cancel" {
 		if !echoLinkTargetPattern.MatchString(callsign) || strings.EqualFold(callsign, "ALL") {
 			return "", errors.New("indicativo o destino inválido")
@@ -349,9 +371,14 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 	}
 	switch action {
 	case "connect":
+		if request.Permanent {
+			return s.startEchoLinkPermanent(callsign)
+		}
 		args = append(args, "connect", callsign)
 	case "disconnect":
-		s.cancelEchoLinkRetry(callsign)
+		if _, err := s.cancelEchoLinkRetry(callsign); err != nil {
+			return "", err
+		}
 		args = append(args, "disconnect", callsign)
 	case "ban":
 		args = append(args, "ban", "add", callsign)
@@ -377,25 +404,30 @@ func (s *ReflectorService) ExecuteEchoLinkAction(parent context.Context, request
 		args = append(args, "message", message)
 	case "retry-list":
 		return s.echoLinkRetryList(), nil
+	case "permanent-list":
+		return s.echoLinkPermanentList()
 	case "retry-cancel":
-		if !s.cancelEchoLinkRetry(callsign) {
+		retry, err := s.cancelEchoLinkRetry(callsign)
+		if err != nil {
+			return "", err
+		}
+		if retry == nil {
 			return "", errors.New("no hay reintentos pendientes para ese destino")
 		}
-		return "Reintentos cancelados.", nil
+		args = append(args, "disconnect", retry.connectionTarget())
+		_, err = s.runEchoLinkCommand(parent, "disconnect", parts[0], args, parts[1:], request)
+		if err != nil {
+			var protocolErr *echoLinkProtocolError
+			if !errors.As(err, &protocolErr) || protocolErr.code != 200003 {
+				return "", fmt.Errorf("conexión permanente eliminada, pero no se pudo desconectar de theLinkBox: %w", err)
+			}
+		}
+		return "Conexión permanente eliminada.", nil
 	default:
 		return "", errors.New("acción EchoLink no válida")
 	}
 
-	if action == "connect" && request.Permanent && s.hasEchoLinkRetry(callsign) {
-		return "", errors.New("ya hay reintentos en segundo plano para ese destino")
-	}
 	output, err := s.runEchoLinkCommand(parent, action, parts[0], args, parts[1:], request)
-	if err != nil && action == "connect" && request.Permanent {
-		if retryErr := s.startEchoLinkRetry(callsign, parts[0], args, parts[1:], request); retryErr != nil {
-			return "", retryErr
-		}
-		return fmt.Sprintf("No se pudo conectar con %s; se reintentará cada %d s en segundo plano.", callsign, int(s.retryInterval.Seconds())), nil
-	}
 	return output, err
 }
 
@@ -403,15 +435,13 @@ func (s *ReflectorService) runEchoLinkCommand(parent context.Context, action, na
 	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
-	if err == nil {
-		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-		if len(lines) > 0 && strings.HasPrefix(strings.ToLower(strings.TrimSpace(lines[0])), "tlbcmd version") {
-			lines = lines[1:]
-		}
-		if len(lines) > 0 {
-			if code, codeErr := strconv.Atoi(strings.TrimSpace(lines[0])); codeErr == nil && code != 0 {
-				err = fmt.Errorf("theLinkBox devolvió el código %d", code)
-			}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) > 0 && strings.HasPrefix(strings.ToLower(strings.TrimSpace(lines[0])), "tlbcmd version") {
+		lines = lines[1:]
+	}
+	if len(lines) > 0 {
+		if code, codeErr := strconv.Atoi(strings.TrimSpace(lines[0])); codeErr == nil && code != 0 {
+			err = &echoLinkProtocolError{code: code}
 		}
 	}
 	diagnostic := echoLinkDiagnosticOutput(action, string(output), configuredArgs, request)
@@ -420,9 +450,11 @@ func (s *ReflectorService) runEchoLinkCommand(parent context.Context, action, na
 			err = fmt.Errorf("%w: %v", ctx.Err(), err)
 		}
 		log.Printf("EchoLink tlbcmd: acción=%q error=%q respuesta=%q", action, err, diagnostic)
-		return "", fmt.Errorf("ejecutar acción EchoLink: %w", err)
+		return strings.TrimSpace(string(output)), fmt.Errorf("ejecutar acción EchoLink: %w", err)
 	}
-	log.Printf("EchoLink tlbcmd: acción=%q proceso finalizado respuesta=%q", action, diagnostic)
+	if action != "users" {
+		log.Printf("EchoLink tlbcmd: acción=%q proceso finalizado respuesta=%q", action, diagnostic)
+	}
 	return strings.TrimSpace(string(output)), nil
 }
 

@@ -149,13 +149,18 @@ generales permiten conectar, enviar mensajes y consultar la lista de baneados
 para desbanear indicativos. Los mensajes no admiten punto y coma ni saltos de
 línea, para evitar que se interpreten como comandos adicionales.
 
-Al conectar se puede marcar **Permanente**. Si la conexión falla, Ameriboard
-reintenta en segundo plano cada 12 segundos hasta lograrlo (máximo 32 destinos
-pendientes). La opción **Reintentos pendientes** muestra los destinos y el
-número de intentos, y permite cancelarlos; desconectar un destino también
-cancela su reintento. Los reintentos se guardan en memoria: se pierden al
-reiniciar el servicio. Cada intento queda registrado con el prefijo
-`EchoLink reintento:`.
+Al conectar se puede marcar **Permanente**. Ameriboard guarda hasta 32 destinos
+en `echolink-permanent.json` dentro de `--state-dir`, los supervisa y los
+restaura al reiniciar. Si un destino no está registrado en theLinkBox,
+Ameriboard intenta conectarlo y vuelve a comprobarlo cada 12 segundos, incluso
+después de una desconexión o un reinicio de theLinkBox.
+La ventana **Conexiones permanentes** muestra el estado, la última conexión
+observada y el último intento realizado por Ameriboard; también permite eliminar
+el destino y desconectarlo. Desconectar desde la tabla también elimina el
+destino permanente. Si theLinkBox ya tiene la conexión pero todavía no recibe
+respuesta (`x`), se muestra como esperando y theLinkBox gestiona sus propios
+reintentos. La hora del último intento mostrado corresponde a Ameriboard, no a
+los intentos internos de theLinkBox.
 Para acciones en perfiles remotos se requiere la contraseña
 de administrador del sitio remoto; los tokens antiguos solo permiten consultar
 telemetría. Las solicitudes y los resultados de `tlbcmd` se registran en el
