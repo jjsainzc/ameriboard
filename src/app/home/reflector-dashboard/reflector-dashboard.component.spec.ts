@@ -6,6 +6,47 @@ import { parseBannedStations, ReflectorDashboardComponent } from './reflector-da
 import { ReflectorService } from '../../core/services/reflector.service';
 
 describe('ReflectorDashboardComponent', () => {
+  it('shows the NXDN connected count only when the reflector is available', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ReflectorDashboardComponent],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()]
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ReflectorDashboardComponent);
+    fixture.detectChanges();
+    const http = TestBed.inject(HttpTestingController);
+    http.expectOne(request => request.url.endsWith('/api/admin/profiles')).flush(null, { status: 401, statusText: 'Unauthorized' });
+    http.expectOne(request => request.url.endsWith('/api/profiles')).flush([]);
+    http.expectOne(request => request.url.endsWith('/api/reflector-status')).flush({
+      header: { title: 'Test', subtitle: '', badge: '', localBridgeStatus: '', lastUpdate: '' },
+      stats: { ysfConnectedNow: 0, ysfTx24h: 0, dmrTx24h: 0, stations24h: 0 },
+      ysfAvailable: false, ysfTrafficAvailable: false, dmrAvailable: false, echolinkAvailable: false,
+      nxdnReflector: { available: true, connected: [], lastHeard: [] }
+    });
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const card = root.querySelector('.kpi-card.border-amber')!;
+    expect(card.querySelector('.kpi-label')?.textContent?.trim()).toBe('CONECTADOS NXDN AHORA');
+    expect(card.querySelector('.kpi-value')?.textContent?.trim()).toBe('0');
+
+    const service = TestBed.inject(ReflectorService);
+    const data = service.data()!;
+    service.data.set({ ...data, nxdnReflector: {
+      ...data.nxdnReflector,
+      connected: [
+        { callsign: 'TEST1', ip: '192.0.2.1', gateway: 'Estación', since: '10:00' },
+        { callsign: 'TEST2', ip: '192.0.2.2', gateway: 'Puente', since: '10:00' }
+      ]
+    } });
+    fixture.detectChanges();
+    expect(card.querySelector('.kpi-value')?.textContent?.trim()).toBe('2');
+    service.data.set({ ...service.data()!, nxdnReflector: { ...service.data()!.nxdnReflector, available: false } });
+    fixture.detectChanges();
+    expect(root.querySelector('.kpi-card.border-amber')).toBeNull();
+    expect(root.querySelector('.kpi-grid')).toBeNull();
+    fixture.destroy();
+    http.verify();
+  });
+
   it('parses theLinkBox ban lists without treating errors as an empty list', () => {
     expect(parseBannedStations('tlbcmd Version 0.56\n0\nbanned users:\nW1AW -\nKQ4ABC Nombre 192.0.2.1\n'))
       .toEqual(['W1AW', 'KQ4ABC']);

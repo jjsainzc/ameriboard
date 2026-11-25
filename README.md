@@ -116,7 +116,8 @@ Para NXDN se lee el TG de `/etc/NXDNReflector.ini` y los registros
 El usuario del servicio necesita acceso de lectura. La sección aparece cuando
 existen el INI y al menos uno de esos registros; esto no confirma que el
 reflector esté activo. Las conexiones se reconstruyen a partir de las listas y
-los eventos disponibles en esos logs. Los últimos escuchados muestran la
+los eventos disponibles en esos logs; su total aparece en la tarjeta de
+conectados NXDN. Los últimos escuchados muestran la
 transmisión más reciente de cada indicativo en las últimas 24 horas, con
 duración desconocida si falta el final de transmisión.
 La fecha y hora DVSwitch se muestran en formato día/mes/año y en la zona
