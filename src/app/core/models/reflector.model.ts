@@ -94,6 +94,7 @@ export interface ReflectorDashboardData {
   };
   dvSwitchTitle: string;
   nxdnTitle: string;
+  echolinkTitle: string;
   dvSwitchBridges: DVSwitchBridge[];
   stats: {
     ysfConnectedCount: number;

@@ -6,6 +6,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReflectorDashboardData, YsfStation, YsfActivity, DmrActivity, DVSwitchActivity, DVSwitchBridge, EchoLinkStation, EchoLinkLastHeard } from '../models/reflector.model';
 
 export const DEFAULT_NXDN_TITLE = 'Estaciones o gateways conectados NXDN';
+export const DEFAULT_ECHOLINK_TITLE = 'EchoLink conectado';
 export interface MonitoringOptions {
   ysf: boolean;
   nxdn: boolean;
@@ -44,6 +45,7 @@ interface BackendStatusRaw {
   };
   dvSwitchTitle?: string | null;
   nxdnTitle?: string | null;
+  echolinkTitle?: string | null;
   nxdnReflector?: {
     available?: boolean;
     tg?: string;
@@ -98,6 +100,7 @@ export interface SiteProfile {
     badge: string;
     dvSwitchTitle?: string;
     nxdnTitle?: string;
+    echolinkTitle?: string;
   } | null;
 }
 
@@ -290,6 +293,7 @@ export class ReflectorService {
       },
       dvSwitchTitle: raw.dvSwitchTitle?.trim() || 'Actividad digital vía DVSwitch',
       nxdnTitle: normalizeNXDNTitle(raw.nxdnTitle),
+      echolinkTitle: raw.echolinkTitle?.trim() || DEFAULT_ECHOLINK_TITLE,
       dvSwitchBridges: raw.dvSwitchBridges ?? [],
       ysfConnected,
       ysfLastHeard,

@@ -92,6 +92,7 @@ type ReflectorConfig struct {
 	Badge                string
 	DVSwitchTitle        string
 	NXDNTitle            string
+	EchoLinkTitle        string
 	YSFReflector         string
 	YSFReflectorConfig   string
 	PYSFReflectorConfig  string
@@ -123,12 +124,13 @@ func NewReflectorService(cfg ReflectorConfig) *ReflectorService {
 	return service
 }
 
-func (s *ReflectorService) SetDashboardSettings(title, subtitle, dvSwitchTitle, nxdnTitle string, options *monitoring.Options) {
+func (s *ReflectorService) SetDashboardSettings(title, subtitle, dvSwitchTitle, nxdnTitle, echolinkTitle string, options *monitoring.Options) {
 	s.mu.Lock()
 	s.cfg.Title = title
 	s.cfg.Subtitle = subtitle
 	s.cfg.DVSwitchTitle = dvSwitchTitle
 	s.cfg.NXDNTitle = nxdnTitle
+	s.cfg.EchoLinkTitle = echolinkTitle
 	s.cfg.Monitoring = options
 	s.mu.Unlock()
 }
@@ -233,6 +235,7 @@ type DashboardStatusResponse struct {
 	Header                HeaderInfo            `json:"header"`
 	DVSwitchTitle         string                `json:"dvSwitchTitle"`
 	NXDNTitle             string                `json:"nxdnTitle"`
+	EchoLinkTitle         string                `json:"echolinkTitle"`
 	NXDNReflector         NXDNReflectorData     `json:"nxdnReflector"`
 	YSFReflectorInfo      YSFReflectorInfo      `json:"ysfReflectorInfo"`
 	PYSFReflector         PYSFReflectorData     `json:"pysfReflector"`
@@ -1326,6 +1329,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 	resp := DashboardStatusResponse{
 		DVSwitchTitle:    cfg.DVSwitchTitle,
 		NXDNTitle:        cfg.NXDNTitle,
+		EchoLinkTitle:    cfg.EchoLinkTitle,
 		NXDNReflector:    nxdnReflector,
 		YSFReflectorInfo: ysfReflectorInfo,
 		PYSFReflector:    pysfReflector,

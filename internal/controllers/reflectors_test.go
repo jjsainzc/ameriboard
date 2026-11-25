@@ -66,7 +66,7 @@ func TestMonitoringSelectionSkipsDisabledSources(t *testing.T) {
 		t.Fatalf("disabled EchoLink command was executed: %v", err)
 	}
 
-	service.SetDashboardSettings("", "", "", "", &monitoring.Options{YSF: true, DVSwitch: true, EchoLink: true})
+	service.SetDashboardSettings("", "", "", "", "", &monitoring.Options{YSF: true, DVSwitch: true, EchoLink: true})
 	got = request(`{"ysf":true,"nxdn":false,"echolink":false,"dvSwitch":false}`)
 	if !got.YSFAvailable || got.Stats.YSFConnectedNow != 1 || got.DMRAvailable || len(got.DVSwitchLastTX) != 0 || got.EchoLinkAvailable {
 		t.Fatalf("remote restriction not applied: %+v", got)

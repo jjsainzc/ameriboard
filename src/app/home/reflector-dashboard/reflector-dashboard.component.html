@@ -358,7 +358,7 @@
     <section class="echolink-grid" aria-label="Actividad EchoLink">
     <section class="panel-card" aria-labelledby="echolink-title">
       <div class="panel-header">
-        <h2 id="echolink-title">EchoLink conectado</h2>
+        <h2 id="echolink-title">{{ d.echolinkTitle }}</h2>
         <div class="echolink-actions">
           <span class="count-pill">{{ d.echolinkConnected.length }}</span>
           <button type="button" class="btn-dark" data-icon="ⓘ" aria-haspopup="dialog" (click)="legendDialog.showModal()">Leyenda</button>
@@ -380,7 +380,7 @@
       @if (d.echolinkUptime !== '—') {
         <div class="echolink-uptime mono">{{ d.echolinkUptime }}</div>
       }
-      <app-table-pagination placement="top" label="EchoLink conectado" [pagination]="echolinkConnectedPages" />
+      <app-table-pagination placement="top" [label]="d.echolinkTitle" [pagination]="echolinkConnectedPages" />
       <div class="table-responsive">
         <table>
           <thead>
@@ -450,7 +450,7 @@
           </tbody>
         </table>
       </div>
-      <app-table-pagination label="EchoLink conectado" [pagination]="echolinkConnectedPages" />
+      <app-table-pagination [label]="d.echolinkTitle" [pagination]="echolinkConnectedPages" />
     </section>
     <section class="panel-card" aria-labelledby="echolink-history-title">
       <div class="panel-header">

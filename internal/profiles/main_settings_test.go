@@ -68,13 +68,14 @@ func TestMainSettingsRequireAdminAndPersistChanges(t *testing.T) {
 	if got := request("PUT", "/api/admin/settings", `{"title":" ","subtitle":"x"}`, cookie, "https://local.example"); got.Code != http.StatusBadRequest {
 		t.Fatalf("blank title: %d %s", got.Code, got.Body)
 	}
-	if got := request("PUT", "/api/admin/settings", `{"title":" Título nuevo ","subtitle":" Subtítulo nuevo ","dvSwitchTitle":" Actividad nueva ","nxdnTitle":" NXDN nuevo "}`, cookie, "https://local.example"); got.Code != http.StatusOK ||
+	if got := request("PUT", "/api/admin/settings", `{"title":" Título nuevo ","subtitle":" Subtítulo nuevo ","dvSwitchTitle":" Actividad nueva ","nxdnTitle":" NXDN nuevo ","echolinkTitle":" EchoLink nuevo "}`, cookie, "https://local.example"); got.Code != http.StatusOK ||
 		!strings.Contains(got.Body.String(), `"title":"Título nuevo"`) ||
 		!strings.Contains(got.Body.String(), `"dvSwitchTitle":"Actividad nueva"`) ||
-		!strings.Contains(got.Body.String(), `"nxdnTitle":"NXDN nuevo"`) {
+		!strings.Contains(got.Body.String(), `"nxdnTitle":"NXDN nuevo"`) ||
+		!strings.Contains(got.Body.String(), `"echolinkTitle":"EchoLink nuevo"`) {
 		t.Fatalf("update settings: %d %s", got.Code, got.Body)
 	}
-	want := MainSettings{Title: "Título nuevo", Subtitle: "Subtítulo nuevo", DVSwitchTitle: "Actividad nueva", NXDNTitle: "NXDN nuevo"}
+	want := MainSettings{Title: "Título nuevo", Subtitle: "Subtítulo nuevo", DVSwitchTitle: "Actividad nueva", NXDNTitle: "NXDN nuevo", EchoLinkTitle: "EchoLink nuevo"}
 	if applied != want {
 		t.Fatalf("applied settings = %+v, want %+v", applied, want)
 	}
@@ -115,6 +116,9 @@ func TestMainSettingsLimitsLengths(t *testing.T) {
 	}
 	if _, err := store.SaveMainSettings(MainSettings{Title: "Título", NXDNTitle: strings.Repeat("a", 201)}); err == nil {
 		t.Fatal("accepted oversized NXDN title")
+	}
+	if _, err := store.SaveMainSettings(MainSettings{Title: "Título", EchoLinkTitle: strings.Repeat("a", 201)}); err == nil {
+		t.Fatal("accepted oversized EchoLink title")
 	}
 	settings, err := store.SaveMainSettings(MainSettings{Title: "Título"})
 	if err != nil || settings.NXDNTitle != DefaultNXDNTitle {

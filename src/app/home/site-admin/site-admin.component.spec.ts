@@ -61,17 +61,20 @@ describe('SiteAdminComponent', () => {
     fixture.detectChanges();
     component.mainSettingsForm.setValue({
       title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local',
+      echolinkTitle: 'EchoLink local',
       monitoring: { ...DEFAULT_MONITORING, nxdn: false }
     });
     component.saveMainSettings();
     const settingsUpdate = http.expectOne(request => request.method === 'PUT' && request.url.endsWith('/api/admin/settings'));
     expect(settingsUpdate.request.body).toEqual({
       title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local',
+      echolinkTitle: 'EchoLink local',
       monitoring: { ...DEFAULT_MONITORING, nxdn: false }
     });
     expect(settingsUpdate.request.headers.get('X-Ameriboard-Request')).toBe('1');
     settingsUpdate.flush({
       title: 'Título actualizado', subtitle: 'Nuevo subtítulo', dvSwitchTitle: 'Actividad local', nxdnTitle: 'NXDN local',
+      echolinkTitle: 'EchoLink local',
       monitoring: { ...DEFAULT_MONITORING, nxdn: false }
     });
     fixture.detectChanges();
@@ -86,6 +89,7 @@ describe('SiteAdminComponent', () => {
     component.siteForm.setValue({
       name: 'Sitio', url: 'https://example.org/ameriboard', password: 'a secure password', visible: false,
       title: 'Mi reflector', subtitle: '', badge: 'Zona', dvSwitchTitle: 'Actividad remota', nxdnTitle: 'NXDN remoto',
+      echolinkTitle: 'EchoLink remoto',
       monitoring: { ...DEFAULT_MONITORING, echolink: false, dvSwitch: false }
     });
     component.save();

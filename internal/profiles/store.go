@@ -37,16 +37,19 @@ type ProfileHeader struct {
 	Badge         string `json:"badge"`
 	DVSwitchTitle string `json:"dvSwitchTitle,omitempty"`
 	NXDNTitle     string `json:"nxdnTitle,omitempty"`
+	EchoLinkTitle string `json:"echolinkTitle,omitempty"`
 }
 
 const DefaultDVSwitchTitle = "Actividad digital vía DVSwitch"
 const DefaultNXDNTitle = "Estaciones o gateways conectados NXDN"
+const DefaultEchoLinkTitle = "EchoLink conectado"
 
 type MainSettings struct {
 	Title         string              `json:"title"`
 	Subtitle      string              `json:"subtitle"`
 	DVSwitchTitle string              `json:"dvSwitchTitle"`
 	NXDNTitle     string              `json:"nxdnTitle"`
+	EchoLinkTitle string              `json:"echolinkTitle"`
 	Monitoring    *monitoring.Options `json:"monitoring,omitempty"`
 }
 
@@ -81,6 +84,9 @@ func (s *Store) LoadMainSettings(defaults MainSettings) (MainSettings, error) {
 	if settings.NXDNTitle == "Últimos escuchados NXDN" {
 		settings.NXDNTitle = DefaultNXDNTitle
 	}
+	if settings.EchoLinkTitle == "" {
+		settings.EchoLinkTitle = defaults.EchoLinkTitle
+	}
 	if err := validateMainSettings(&settings); err != nil {
 		return MainSettings{}, err
 	}
@@ -108,16 +114,21 @@ func validateMainSettings(settings *MainSettings) error {
 	settings.Subtitle = strings.TrimSpace(settings.Subtitle)
 	settings.DVSwitchTitle = strings.TrimSpace(settings.DVSwitchTitle)
 	settings.NXDNTitle = strings.TrimSpace(settings.NXDNTitle)
+	settings.EchoLinkTitle = strings.TrimSpace(settings.EchoLinkTitle)
 	if settings.DVSwitchTitle == "" {
 		settings.DVSwitchTitle = DefaultDVSwitchTitle
 	}
 	if settings.NXDNTitle == "" {
 		settings.NXDNTitle = DefaultNXDNTitle
 	}
+	if settings.EchoLinkTitle == "" {
+		settings.EchoLinkTitle = DefaultEchoLinkTitle
+	}
 	if settings.Title == "" || utf8.RuneCountInString(settings.Title) > 200 ||
 		utf8.RuneCountInString(settings.Subtitle) > 500 ||
 		utf8.RuneCountInString(settings.DVSwitchTitle) > 200 ||
-		utf8.RuneCountInString(settings.NXDNTitle) > 200 {
+		utf8.RuneCountInString(settings.NXDNTitle) > 200 ||
+		utf8.RuneCountInString(settings.EchoLinkTitle) > 200 {
 		return errInvalidMainSettings
 	}
 	return nil
@@ -276,7 +287,8 @@ func validProfile(p Profile) error {
 	if p.Header != nil && (utf8.RuneCountInString(p.Header.Title) > 200 ||
 		utf8.RuneCountInString(p.Header.Subtitle) > 500 || utf8.RuneCountInString(p.Header.Badge) > 100 ||
 		utf8.RuneCountInString(p.Header.DVSwitchTitle) > 200 ||
-		utf8.RuneCountInString(p.Header.NXDNTitle) > 200) {
+		utf8.RuneCountInString(p.Header.NXDNTitle) > 200 ||
+		utf8.RuneCountInString(p.Header.EchoLinkTitle) > 200) {
 		return fmt.Errorf("%w: cabecera demasiado larga", errInvalidProfile)
 	}
 	return nil
@@ -321,6 +333,7 @@ func (s *Store) save(p Profile, id string) (Profile, error) {
 		p.Header.Badge = strings.TrimSpace(p.Header.Badge)
 		p.Header.DVSwitchTitle = strings.TrimSpace(p.Header.DVSwitchTitle)
 		p.Header.NXDNTitle = strings.TrimSpace(p.Header.NXDNTitle)
+		p.Header.EchoLinkTitle = strings.TrimSpace(p.Header.EchoLinkTitle)
 	}
 	if err := validProfile(p); err != nil {
 		return Profile{}, err

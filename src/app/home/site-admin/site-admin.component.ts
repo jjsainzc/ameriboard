@@ -4,13 +4,14 @@ import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DEFAULT_MONITORING, DEFAULT_NXDN_TITLE, MonitoringOptions, normalizeNXDNTitle, SiteProfile } from '../../core/services/reflector.service';
+import { DEFAULT_ECHOLINK_TITLE, DEFAULT_MONITORING, DEFAULT_NXDN_TITLE, MonitoringOptions, normalizeNXDNTitle, SiteProfile } from '../../core/services/reflector.service';
 
 interface MainSettings {
   title: string;
   subtitle: string;
   dvSwitchTitle: string;
   nxdnTitle?: string;
+  echolinkTitle?: string;
   monitoring?: MonitoringOptions | null;
 }
 
@@ -62,6 +63,7 @@ export class SiteAdminComponent {
     subtitle: ['', Validators.maxLength(500)],
     dvSwitchTitle: ['Actividad digital vía DVSwitch', [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
     nxdnTitle: [DEFAULT_NXDN_TITLE, [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
+    echolinkTitle: [DEFAULT_ECHOLINK_TITLE, [Validators.required, Validators.maxLength(200), Validators.pattern(/\S/)]],
     monitoring: this.fb.group({ ...DEFAULT_MONITORING })
   });
   readonly setupForm = this.fb.group({
@@ -78,6 +80,7 @@ export class SiteAdminComponent {
     badge: ['', Validators.maxLength(100)],
     dvSwitchTitle: ['', Validators.maxLength(200)],
     nxdnTitle: ['', Validators.maxLength(200)],
+    echolinkTitle: ['', Validators.maxLength(200)],
     monitoring: this.fb.group({ ...DEFAULT_MONITORING })
   });
 
@@ -126,7 +129,7 @@ export class SiteAdminComponent {
     this.http.get<MainSettings>(`${this.url}/settings`)
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: settings => {
-          this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle), monitoring: settings.monitoring ?? DEFAULT_MONITORING });
+          this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle), echolinkTitle: settings.echolinkTitle?.trim() || DEFAULT_ECHOLINK_TITLE, monitoring: settings.monitoring ?? DEFAULT_MONITORING });
           this.mainSettingsLoaded.set(true);
         },
         error: err => this.fail(err, 'No se pudo cargar la configuración principal.')
@@ -142,7 +145,7 @@ export class SiteAdminComponent {
       `${this.url}/settings`, this.mainSettingsForm.getRawValue(), { headers: this.headers }
     ).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: settings => {
-        this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle), monitoring: settings.monitoring ?? DEFAULT_MONITORING });
+        this.mainSettingsForm.setValue({ ...settings, nxdnTitle: normalizeNXDNTitle(settings.nxdnTitle), echolinkTitle: settings.echolinkTitle?.trim() || DEFAULT_ECHOLINK_TITLE, monitoring: settings.monitoring ?? DEFAULT_MONITORING });
         this.busy.set(false);
         this.notice.set('Configuración principal guardada.');
       },
@@ -178,6 +181,7 @@ export class SiteAdminComponent {
       title: site.header?.title ?? '', subtitle: site.header?.subtitle ?? '', badge: site.header?.badge ?? '',
       dvSwitchTitle: site.header?.dvSwitchTitle ?? '',
       nxdnTitle: site.header?.nxdnTitle ? normalizeNXDNTitle(site.header.nxdnTitle) : '',
+      echolinkTitle: site.header?.echolinkTitle ?? '',
       monitoring: site.monitoring ?? DEFAULT_MONITORING
     });
     this.error.set('');
