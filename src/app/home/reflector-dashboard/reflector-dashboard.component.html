@@ -232,7 +232,7 @@
     @if (d.pysfReflector.available) {
     <details class="dashboard-section pysf-section" open>
       <summary class="dashboard-section-summary">
-        <span>{{ d.pysfReflector.name }}</span>
+        <span>Yaesu System Fusion / C4FM (Python version)</span>
         <span class="section-reflector-info">
           {{ d.pysfReflector.id }}
           @if (d.pysfReflector.description) { · {{ d.pysfReflector.description }} }
@@ -242,7 +242,7 @@
       <section class="tables-grid-top">
         <div class="panel-card">
           <div class="panel-header">
-            <h2>Estación o gateway conectado</h2>
+            <h2>{{ d.pysfReflector.name }}</h2>
             <span class="count-pill">{{ d.pysfReflector.connected.length }}</span>
           </div>
           <app-table-pagination placement="top" label="estaciones pYSF conectadas" [pagination]="pysfConnectedPages" />
