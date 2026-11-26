@@ -1,0 +1,484 @@
+##############
+Comandos de Sysop
+##############
+
+".sysop <password>"
+
+Ninguno de los comandos de sysop está disponible hasta que te identifiques como
+sysop usando el comando .sysop y proporcionando la contraseña del sysop.
+Además, los sysops pueden transmitir durante el PauseTime para darles
+una prioridad ligeramente mayor en el canal que a los usuarios normales.
+
+Al usar este comando, por favor *asegúrate* de ingresar el punto '.' inicial y
+empezar el comando al principio de la línea; de lo contrario, podrías enviar la
+contraseña del sysop a todos los que estén conectados a la conferencia.
+
+Una vez que hayas iniciado sesión correctamente, recibirás un mensaje de
+bienvenida. Seguirás conectado como sysop únicamente mientras estés
+conectado a thebridge; si te desconectas, tendrás que volver a iniciar sesión.
+
+ADVERTENCIA: Por favor, no uses una contraseña "valiosa" para la contraseña de
+administrador; se envía en texto plano por UDP al puerto RTP, es decir, puede
+ser interceptada (sniffed).
+
+".admins"
+
+Este comando simplemente muestra la lista de usuarios que han iniciado sesión
+como administradores o sysops. Es una buena forma de verificar que iniciaste
+sesión como sysop antes de emitir comandos. También es una buena manera de
+determinar si es momento de cambiar las contraseñas (sonrisa).
+
+".busy [on | off | status]"
+
+Este comando controla el estado de ocupado (busy) de la conferencia. El estado
+de ocupado de la conferencia aparece en el directorio de estaciones; además, las
+solicitudes de conexión de nuevas estaciones se rechazan cuando la conferencia
+está ocupada. La opción status permite que una conferencia indique a los
+servidores de directorio que está ocupada, pero que en realidad siga aceptando
+conexiones para fines especiales.
+
+".connect [-m] [-p <port>] [-s] [-r] <station>"
+".disconnect <station>"
+".disconnect ALL"
+".disconnect last"
+".disconnect ."
+
+Estos comandos permiten enlazar salas de conferencia para aumentar la
+capacidad más allá de lo que está disponible en un solo servidor. El comando
+.connect aceptará un indicativo (callsign) de estación, un ID de conferencia
+o una dirección IP.
+
+El comando .connect establece una conexión permanente entre ambos hasta que un
+administrador (de cualquiera de las conferencias) ingrese un comando
+.disconnect. Si la conexión falla, la conexión se restablecerá
+automáticamente cuando vuelva la ruta.
+
+Cuando thebridge está enlazado a otro thebridge que ejecuta la versión 0.33 o
+posterior, el indicativo y el nombre del usuario se mostrarán en la
+conferencia enlazada junto al indicativo de la conferencia en la lista de
+estaciones.
+
+El comando .connect en realidad puede usarse para conectarse a cualquier
+estación; no está restringido a conferencias. Si se establece una conexión con
+la estación de un usuario, este podrá desconectarse usando el método habitual,
+lo cual equivale a que un administrador ingrese el comando .disconnect.
+
+La opción -m especifica que una conexión se inició en modo .monitor. El
+comando ".monitor disable" puede usarse para establecer la conexión en
+transcepción completa (full transceive).
+
+La opción -s especifica que la conexión debe hacerse usando el protocolo Speak
+Freely en lugar del protocolo EchoLink predeterminado. El protocolo Speak
+Freely se ofrece por compatibilidad con otras aplicaciones.
+
+La opción -r especifica que la conexión debe hacerse usando el protocolo RTP
+en lugar del protocolo EchoLink predeterminado. El protocolo RTP es el
+protocolo preferido para cualquier cosa que no sea conexiones EchoLink.
+
+La opción "ALL" del comando ".disconnect" desconecta a todos los usuarios, no
+solo a los usuarios que se conectaron usando el comando ".connect".
+
+La opción "LAST" de ".disconnect" simplemente desconecta la última estación
+que se conectó, dejando conectados a los demás usuarios.
+
+La opción "." de ".disconnect" desconecta la estación que está hablando
+actualmente.
+
+
+".lurk disable" ".lurk enable" ".lurk <callsign>" ".delurk <callsign>"
+
+El modo lurk (escuchar en silencio) es una de mis funciones favoritas
+personales de thebridge; de hecho, fue el primer comando. Sin embargo, no todos
+comparten mi opinión. La capacidad de desactivar el lurk ha sido la función
+más solicitada. La opción disable desactiva (¡obvio!) la capacidad de las
+estaciones para hacer "lurk", y la opción enable restablece esa capacidad. Por
+defecto, el lurk está activado. A las estaciones que intenten hacer lurk cuando
+esté desactivado se les enviará un mensaje informándoles que la función
+lurking ha sido deshabilitada.
+
+Los sysops pueden establecer el modo lurking de una estación específica. Esto es
+útil para restaurar el estado de una estación después de que thebridge se haya
+reiniciado (rápidamente).
+
+"message [message text]"
+
+Este comando puede ser usado por la interfaz de scripting para enviar mensajes
+de texto a los usuarios de la conferencia. A diferencia de los mensajes
+normales en modo texto de EchoLink, los mensajes recibidos desde el puerto de
+comandos se asumen como comandos y no necesitan llevar un punto al principio.
+
+
+".monitor [disable] <callsign>"
+
+Este comando permite poner una estación en modo de solo hablar (talk only).
+Este comando es básicamente lo opuesto al comando ".mute": el cliente
+monitoreado puede hablar, pero no escuchar. Esto es útil en ciertas situaciones
+(inusuales), como el reciente desastre del transbordador, cuando quieres
+escuchar una conferencia asegurándote al mismo tiempo de que el tráfico local
+no la interrumpa.
+
+La opción disable se usa para devolver una estación a la operación de
+transcepción completa (full transceive).
+
+".mute"  ".mute ."  ".mute <callsign> [<callsign> ...]"
+".unmute <callsign> [<callsign...]"
+
+Este comando permite poner una estación en modo de solo escuchar (listen only).
+Este comando es particularmente útil durante las ruedas (nets) para evitar que
+identificadores de repetidoras, tonos de cortesía y usuarios confundidos
+interrumpan una rueda fuera de turno. El comando .mute surte efecto de
+inmediato y permanece activo mientras la estación siga conectada o hasta que se
+cancele con el comando .unmute.
+
+La estación que está hablando actualmente puede especificarse con un carácter de
+punto "." para ahorrar escribir todo el indicativo.
+
+Si el comando .mute se ejecuta sin argumentos, se muestra una lista de las
+estaciones que están silenciadas (muted) actualmente.
+
+".mute -r" ".mute -c" ".mute -u" ".mute -s" ".mute -t" ".mute -a" ".mute -e"
+".unmute -r" ".unmute -c" ".unmute -u" ".unmute -s" ".unmute -t" ".unmute -a"
+".unmute -e"
+
+Estas variaciones de los comandos .mute y .unmute afectan a un grupo de
+estaciones a la vez y, además, ponen la conferencia en un modo en el que las
+nuevas conexiones de estaciones de ese tipo también quedan silenciadas
+automáticamente. Estos comandos son útiles principalmente para controlar ruedas
+grandes, como la rueda N2LEN del 9/11.
+
+Donde los distintos sufijos significan:
+
+  -a: Todos los usuarios (excepto tú mismo)
+  -c: Conferencias tbd
+  -e: Conferencias EchoLink
+  -r: Usuarios de RF (estaciones -R y -L)
+  -s: Sysops y Admins
+  -t: Estación hablando
+  -u: Usuarios de PC
+
+Puedes usar más de una opción en un comando; por ejemplo, si quieres silenciar
+tanto a usuarios de RF como a usuarios de PC, pero no a conferencias ni a
+sysops, además de una conferencia específica, podrías ingresar:
+".mute -ru *echotest*"
+
+La estación que está hablando actualmente *NO* es silenciada por estos comandos
+a menos que se incluya la bandera "t".
+
+Estos son acumulativos: si silencias conferencias en un comando y luego
+silencias rf users en el siguiente comando, ambos permanecen silenciados.
+
+".mute chat" ".unmute chat"
+
+Este comando permite a un sysop controlar si se le envían mensajes de texto.
+El comando afecta únicamente al sysop que lo emite; los mensajes de texto
+continúan reenviándose a los demás usuarios. Este comando es útil para
+estaciones de control de rueda que intentan leer la lista de usuarios mientras
+ocurre en segundo plano un animado QSO fuera de tema en modo texto.
+
+".pausetime"  ".pausetime <time constant>"
+
+Este comando permite ajustar la variable de configuración PauseTime según sea
+necesario durante la operación normal. La variable PauseTime establece el
+intervalo mínimo entre transmisiones en la conferencia. A las estaciones que
+entren antes de que transcurra el tiempo mínimo se les enviará un mensaje de
+advertencia y no se repetirán hasta que haya pasado el tiempo mínimo de pausa.
+
+Este parámetro puede ayudar a evitar el "rebote" de repetidoras (bouncing) que
+ocurre cuando múltiples repetidoras o estaciones de enlace están conectadas a
+una sala de conferencia con malos parámetros operativos. También garantizará
+que haya una pausa entre transmisiones para permitir que los enlaces simplex
+salgan de la conferencia.
+
+".play4 [-f] [-i] <filename> [displayed name]"
+
+Este comando permite reproducir un archivo de grabación para todos los
+usuarios. Cuando el archivo se reproduce para todos los usuarios, se puede
+ingresar una descripción opcional que aparecerá en la lista de estaciones como
+la "estación" que está hablando. Si se omite la descripción, la "estación" se
+mostrará como "QST". El tiempo de reproducción está controlado por las mismas
+variables del archivo de configuración que el comando .play. Normalmente la
+reproducción comenzará tan pronto como la conferencia esté libre (nadie esté
+hablando); las banderas -f y -i se usan para modificar este comportamiento. La
+bandera -f puede usarse para forzar que la reproducción comience de inmediato
+incluso si alguien está hablando. La bandera -i puede usarse para forzar que la
+reproducción espere IdleTimeout segundos de inactividad antes de que comience
+la reproducción del boletín.
+
+Estas banderas brindan a los scripts la capacidad de hacer cosas como
+reproducir automáticamente una rueda a una hora determinada mientras se advierte
+previamente a los usuarios para darles tiempo de terminar sus QSOs. Por
+ejemplo, se podrían reproducir un par de anuncios de advertencia 10 minutos, 5
+minutos y un minuto antes de la rueda, y luego reproducir el boletín
+exactamente a tiempo usando el comando -f.
+
+Un operador de conferencia menos estricto podría simplemente usar el comando -i
+para reproducir el boletín tan pronto como la conferencia quede libre después de
+la hora fijada. Esto permitiría que los QSOs terminaran de forma natural antes
+de iniciar una reproducción.
+
+".play4 -u <user> <filename>"
+
+Esta variación del comando play4 permite reproducir una grabación para un
+usuario específico.
+
+".users [-b] [-c] [-q] [-t] [-T] [-v] [?]"
+
+El comando .users muestra el indicativo de todas las conexiones VoIP en orden
+de inicio de sesión junto con sus atributos. Este comando es particularmente
+útil para operadores de control de rueda al permitirles ver más estaciones de
+las que caben en la ventana de información del cliente EchoLink.
+
+El significado de los caracteres de atributos puede mostrarse mediante el
+comando ".user ?". Son los siguientes:
+
+Atributos de usuario:
+0 - El usuario está usando el protocolo Speak Freely
+1 - El usuario está usando el protocolo RTP
+A - El usuario ha iniciado sesión como administrador.
+a - El usuario está usando el códec ADPCM
+B - El usuario está ejecutando la conferencia theBridge o thelinkbox.
+C - El usuario es una conferencia enlazada distinta de thebridge.
+c - El texto de chat del usuario ha sido suprimido
+F - El usuario está reproduciendo un archivo (usando los comandos .play o .test).
+f - El usuario está en Full duplex
+I - El usuario está aislado (no en la conferencia)
+K - El usuario ha sido expulsado (Kicked, está siendo desconectado).
+L - El usuario es un Lurker.
+m - El audio del usuario está silenciado (muted).
+M - El audio y el texto del usuario están silenciados (muted).
+P - El usuario es una conexión permanente (conectado mediante un comando .connect).
+R - El usuario está en modo de solo recepción (Receive only, siendo monitoreado)
+S - El usuario ha iniciado sesión como sysop.
+T - El usuario está hablando actualmente.
+u - El usuario está ejecutando el códec uLaw
+x - La conexión del usuario está inactiva
+! - El usuario tiene una versión antigua de thebridge que enviaba paquetes SDES
+    que contenían un campo de extensión privado "txt".
+
+El modificador -b (bare) suprime la visualización de los atributos de usuario.
+El modificador -c muestra la cantidad de tiempo que el usuario ha estado
+conectado.
+El modificador -q suprime el registro (logging) del comando .user. Esto es útil
+cuando el comando .user es utilizado por scripts AJAX para evitar que el
+registro se llene con información poco interesante.
+El modificador -t muestra la cantidad de tiempo transcurrido desde que el
+usuario transmitió por última vez.
+El modificador -T ordena la lista de usuarios por el tiempo transcurrido desde
+la última transmisión.
+El modificador -s muestra la lista de usuarios en el mismo formato que se
+       presenta a los usuarios de EchoLink en el lado derecho de su cliente.
+El modificador -v muestra el número de versión del cliente del usuario.
+
+".belchfilter"  ".belchfilter <time constant>"
+
+Este comando permite ajustar la variable de configuración BelchTime según sea
+necesario durante la operación normal. La variable BelchTime establece el
+tiempo mínimo de transmisión para estaciones -R y -L antes de que se transmita
+su audio.
+
+Este parámetro puede ayudar a evitar el "rebote" de repetidoras (bouncing) que
+ocurre cuando múltiples repetidoras o estaciones de enlace están conectadas a
+una sala de conferencia con malos parámetros operativos. También puede ayudar a
+evitar que los "kurchunkers" de repetidoras alteren la paz.
+
+
+######################
+Comandos de Administrador
+######################
+
+".admin <password>"
+
+Ninguno de los comandos de administrador está disponible hasta que te
+identifiques como administrador usando el comando .admin y proporcionando la
+contraseña del administrador. Al usar este comando, por favor *asegúrate* de
+ingresar el punto '.' inicial y empezar el comando al principio de la línea; de
+lo contrario, podrías enviar la contraseña del administrador a todos los que
+estén conectados a la conferencia.
+
+Una vez que hayas iniciado sesión correctamente, recibirás un mensaje de
+bienvenida. Seguirás conectado como administrador únicamente mientras estés
+conectado a thebridge; si te desconectas, tendrás que volver a iniciar sesión.
+
+Un administrador tiene acceso automático a todos los comandos de sysop; no hace
+falta iniciar sesión como sysop si ya iniciaste sesión como administrador.
+
+Por lo general, los sysops son operadores de control de rueda, y los
+administradores son propietarios de nodos.
+
+".allow add <callsign>"
+
+Este comando agrega una nueva estación a la lista de control de acceso (ACL).
+Este comando se usa típicamente para agregar estaciones a conferencias
+privadas.
+
+".allow delete <callsign>"
+
+Este comando elimina una estación de la lista de control de acceso (ACL).
+
+".allow list"
+
+Este comando muestra las estaciones a las que se permite el acceso según la
+lista de control de acceso (ACL).
+
+".dns list"
+
+Este comando muestra las entradas en la caché del sistema de nombres de dominio
+(DNS). El sistema DNS convierte nombres de host como nawest.echolink.org en
+direcciones IP.
+
+".dns refresh"
+
+Este comando fuerza la actualización del contenido de la caché DNS. Por
+defecto, la caché DNS se actualiza cada 15 minutos. Forzar una actualización
+puede ayudar a corregir problemas causados por entradas de nombres de host en la
+ACL que están vinculadas a direcciones IP dinámicas.
+
+".quote <command line>"
+
+El comando quote permite a un sysop enviar un comando a todas las conferencias
+enlazadas. Por ejemplo, un sysop en una conferencia puede silenciar una
+estación en otra conferencia ingresando ".quote .mute w1abc". Ten en cuenta
+que, dado que el comando se envía a *todas* las conferencias enlazadas, se
+generará un mensaje de error "w1abc not found" en aquellas donde no esté
+presente.
+
+
+".quickexit"
+
+Este comando hace que thebridge salga sin cerrar sesión en los servidores de
+directorio de EchoLink. Esto puede ser útil cuando hay problemas de
+comunicaciones o en otras situaciones especiales. Normalmente debería usarse en
+su lugar el comando ".shutdown". Este comando se conocía anteriormente como
+.quit, pero eso provocaba accidentes.
+
+
+".record <filename>" ".record stop"
+
+Este comando comienza a grabar en disco todo el tráfico de la conferencia del
+bridge para reproducirlo posteriormente. El tráfico grabado incluye todo el
+audio de la conferencia *y* los mensajes de texto. Las sesiones de prueba y los
+comandos enviados a thebridge no se graban. El archivo de grabación crece
+aproximadamente 129000 bytes por minuto mientras alguien está hablando. Los
+espacios entre transmisiones no se graban y no consumen espacio en disco. Para
+finalizar la grabación, ingresa ".record stop". Toma nota del nombre de archivo
+que uses al grabar, ya que lo necesitarás más adelante. Las grabaciones no están
+disponibles para que los usuarios las reproduzcan hasta que las agregues
+explícitamente a la lista de boletines disponibles.
+
+".refresh"
+
+Este comando hace que thebridge descargue una actualización de la lista de
+estaciones en memoria (y en disco si está habilitado) desde el servidor de
+directorio de EchoLink.
+
+
+".rehash"
+
+Este comando hace que thebridge vuelva a leer su archivo de configuración. Esto
+permite hacer cambios en la configuración sin tener que reiniciar el servidor.
+
+".set <variable>"
+".set <variable> = <value>"
+
+Este comando permite al administrador ver y establecer variables del archivo de
+configuración de forma interactiva. La mayoría de las variables, pero no todas,
+pueden configurarse mediante este comando. Dado que este comando no actualiza
+el archivo de configuración, cualquier cambio se perderá cuando se reinicie
+thebridge.
+
+
+".shutdown"
+
+Este comando hace que thebridge cierre sesión en los servidores de directorio
+de EchoLink y luego salga.
+
+
+".list add <filename> <description>"
+
+Una vez que se ha realizado una grabación, puede ponerse a disposición de los
+usuarios para su reproducción agregándola a la lista de boletines. Los
+usuarios seleccionan los boletines por descripción; nunca ven el nombre del
+archivo. Esto ofrece la posibilidad de cambiar el archivo que se reproduce sin
+cambiar la descripción. Por ejemplo, una descripción de "Last week's net"
+podría actualizarse semanalmente para apuntar a una nueva grabación manteniendo
+un archivo de ruedas anteriores.
+
+".list"
+
+Cuando has iniciado sesión como administrador, el comando .list muestra el
+nombre del archivo correspondiente a la descripción al principio de la línea.
+Esto resulta útil para quienes tenemos mala memoria al usar el siguiente
+comando.
+
+".list delete <filename>"
+
+Como podrías imaginar, esto elimina un boletín de la lista.
+
+".kick <callsign>"
+
+Este comando termina la conexión de un usuario de inmediato. Es útil cuando
+deseas desconectar una estación por completo. Por ejemplo, una estación de
+enlace o repetidora ha estado conectada a la conferencia durante mucho tiempo y
+parece estar desatendida, y está por comenzar una rueda larga en la
+conferencia. Puede considerarse una cortesía desconectar ese tipo de
+conexiones en lugar de enviar toneladas de tráfico no deseado al aire. El
+comando .kick no tiene un efecto duradero; la estación expulsada es libre de
+volver a conectarse de inmediato después de ser expulsada. En nuestro ejemplo,
+esto indicaría un interés activo en la rueda por parte de alguien asociado con
+el enlace o la repetidora.
+
+".ban add <callsign> [IP Address/HostName]"
+
+Si los comandos anteriores no fueron suficientes para corregir un problema, el
+comando .ban puede usarse para agregar una estación a la lista de vetadas
+(banned list). A diferencia de los comandos anteriores, la lista de vetados
+persiste entre conexiones y también tras reinicios del sistema. Una estación
+vetada ni siquiera puede conectarse a thebridge.
+Nota: Las estaciones se vetan independientemente del tipo de estación; es decir,
+si W1AW es vetada (¿acaso no apoya a la League?), W1AW-L y W1AW-R también
+quedan vetadas.
+
+Además, las estaciones pueden vetarse *tanto* por indicativo como por
+dirección IP si se desea. A diferencia de versiones anteriores del bridge, la
+versión 0.41 y posteriores no vetan automáticamente estaciones por dirección IP,
+a menos que el administrador lo especifique al vetar la estación.
+
+".ban list"
+
+Esto muestra la actual galería de malhechores de estaciones vetadas.
+
+".ban delete <callsign>"
+
+¡Por fin repararon su repetidora, ya era hora! Este comando elimina una
+estación de la lista de vetados.
+
+".info [Info field text]"
+
+El comando .info muestra y modifica la cadena de información (ubicación, Qth)
+enviada al servidor de directorio. Si no se especifica un argumento, el comando
+.info simplemente muestra la cadena de información actual. Cuando se da un
+argumento, la cadena de información actual se reemplaza con el argumento y el
+servidor de directorio se actualiza con la nueva cadena. La nueva cadena *NO* es
+persistente; si se reinicia tbd, la cadena de información volverá al valor
+especificado en tbd.conf.
+
+###############
+Comandos de Script
+###############
+
+".chat [on | off]"
+
+El comando .chat controla el modo de chat de la interfaz de comandos. Cuando
+el modo de chat está desactivado (off), los mensajes enviados al puerto de
+comandos se asumen como comandos para thebridge y los mensajes de texto
+entrantes no se reenvían al puerto de comandos. Cuando el modo de chat está
+activado (on), los mensajes enviados al puerto de comandos se reenvían como
+mensajes de texto a menos que estén precedidos por ".." para indicar que son
+comandos para el sistema local. Cuando el modo de chat está activado, los
+mensajes de texto recibidos desde la red se reenvían al puerto de comandos con
+un código de resultado TBD_CHAT_TEXT. Consulta SCRIPTING.txt para más
+detalles.
+
+NB: Aunque la función del modo .chat sigue estando soportada, está obsoleta
+(deprecated). La versión 0.84 y posteriores de thebridge proporcionan un puerto
+separado para los mensajes de texto que reemplaza al modo .chat.
