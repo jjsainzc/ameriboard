@@ -823,6 +823,10 @@ func readPYSFReflectorStatus(parent context.Context, cfg ReflectorConfig, now ti
 				}
 			}
 		}
+		if err := scanner.Err(); err != nil {
+			_ = file.Close()
+			continue
+		}
 		_ = file.Close()
 	}
 
@@ -876,7 +880,7 @@ func (s *ReflectorService) GetStatus(c echo.Context) error {
 				warnings = append(warnings, "No se pueden leer los logs YSF")
 				c.Logger().Errorf("No se pueden leer los logs YSF: %v", err)
 			}
-		} else if len(ysfFiles) == 0 {
+		} else if len(ysfFiles) <= 0 {
 			ysfAvailable = false
 		}
 	}
