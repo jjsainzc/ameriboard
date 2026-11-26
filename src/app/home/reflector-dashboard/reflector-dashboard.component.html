@@ -138,7 +138,7 @@
     @if (d.ysfAvailable || d.ysfTrafficAvailable) {
     <details class="dashboard-section ysf-section" open>
       <summary class="dashboard-section-summary">
-        <span>{{ d.ysfReflectorInfo.name }}</span>
+        <span>Yaesu System Fusion / C4FM</span>
         <span class="section-reflector-info">
           {{ d.ysfReflectorInfo.id }}
           @if (d.ysfReflectorInfo.description) { · {{ d.ysfReflectorInfo.description }} }
@@ -150,7 +150,7 @@
       @if (d.ysfAvailable) {
       <div class="panel-card">
         <div class="panel-header">
-          <h2>Estación o gateway conectado</h2>
+          <h2>{{ d.ysfReflectorInfo.name }}</h2>
           <span class="count-pill">{{ d.ysfConnected.length }}</span>
         </div>
         <app-table-pagination placement="top" label="estaciones YSF conectadas" [pagination]="ysfConnectedPages" />
