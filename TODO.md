@@ -53,7 +53,7 @@ generalmente los puertos asignados para estos reflectores de YSF son del 42000 -
 
 - [x] 8. Hacer las secciones para agrupar las tablas de forma colapsable como las que tiene el Amerimon.
 
-- [ ] 9. Incorporar las tarjetas y ultimos escuchados para un reflector NXDN, el ini esta en `/etc/NXDNReflector.ini` los logs estan en `/var/log/NXDNReflector-YYYY-MM-DD.log` o `/var/log/NXDNReflector.log`
+- [x] 9. Incorporar las tarjetas y ultimos escuchados para un reflector NXDN, el ini esta en `/etc/NXDNReflector.ini` los logs estan en `/var/log/NXDNReflector-YYYY-MM-DD.log` o `/var/log/NXDNReflector.log`
 Ejemplo del log
 ```
 M: 2026-11-24 00:01:56.434 Currently linked repeaters:
@@ -80,3 +80,5 @@ M: 2026-11-24 00:06:18.702 Removing KQ4HPI     (57.135.192.137:57910) disappeare
 ``` 
 Diferenciar las  tarjetas de reflectores con diferentes colores o algo similar entre YSF - NXDN - ECHOLINK y DVSwitch
 
+- [ ] 10. En Ameribord mover las estaciones que han tenido actividad mas reciente a la posicion top de la tabla que corresponde, YSF, NXDN y Echolink,ordenar por ultima lectura e indicativo descendiente, para YSF y NXDN , si no se detecta file .ini ni .log de algunos de los reflectores no mostrar las tarjetas.
+- [ ] 11. Para la parte de Echolink, poner dentro de las acciones un dialogo que permita enviar comandos al Echolink y ver el resultado, poner una ayuda de los comandos segun el manual que esta en /home/hc1lnm/Documents/AngularPro/ameriboard/doc/tlbcmd-commands-es.txt, tambien agregar una columna a la tabla de los echolink conectados, con el numero del nodo del echolink, se obtiene del /home/hc1lnm/Documents/AngularPro/ameriboard/scripts/get_echolink_data.sh que baja la base de datos (refrescar ese file cada 15 min) y produce un file json.  
